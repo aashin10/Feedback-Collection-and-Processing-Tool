@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Report Generator</title>
+    <link rel="stylesheet" href="styles/singleTrainerStyles.css"/>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Single Trainer Feedback</h1>
+            <p>Upload your Excel file and generate reports for a Single Trainer</p>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📊</div>
+                <div class="upload-text">
+                    <h3>Upload Excel File</h3>
+                    <p>Drop your Excel file here or click to browse</p>
+                    <button type="button" class="upload-btn">Choose File</button>
+                </div>
+            </div>
+            <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
+            
+            <!-- File Info Display -->
+            <div class="file-info" id="fileInfo">
+                <div class="file-icon">📄</div>
+                <div class="file-details">
+                    <h4 id="fileName"></h4>
+                    <p id="fileSize"></p>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div class="message" id="message"></div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-section">
+            <button class="generate-btn" id="generateBtn" onclick="generateReport()" disabled>
+                Generate Report
+            </button>
+            <button class="download-btn" id="downloadBtn" onclick="downloadReport()">
+                📥 Download Report
+            </button>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Generating your report...</p>
+        </div>
+
+        <!-- Report Preview Section -->
+        <div class="report-preview" id="reportPreview">
+            <div class="report-header">
+                <div>
+                    <h2 class="report-title">Generated Report</h2>
+                </div>
+                <div class="report-date" id="reportDate"></div>
+            </div>
+            
+            <div class="report-content">
+                <!-- Placeholder - This is where your actual report content will go -->
+                <div class="report-placeholder" id="reportPlaceholder">
+                    <div class="icon">📈</div>
+                    <p>Your report will appear here once generated</p>
+                </div>
+                
+                <!-- Sample content structure (hidden by default) -->
+                <div id="reportActualContent" style="display: none;">
+                    <!-- This is where you'll inject your actual report content -->
+                    <h3>Report Summary</h3>
+                    <table class="sample-table">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Value</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTableBody">
+                            <!-- Data will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Excel data extract package -->
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <script>
+        let uploadedFile = null;
+        let reportData = null;
+
+        // File upload handling
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                uploadedFile = file;
+                displayFileInfo(file);
+                showMessage('File uploaded successfully!', 'success');
+                document.getElementById('generateBtn').disabled = false;
+            }
+        }
+
+        function displayFileInfo(file) {
+            const fileInfo = document.getElementById('fileInfo');
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+
+            fileName.textContent = file.name;
+            fileSize.textContent = `Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            fileInfo.classList.add('show');
+        }
+
+        function showMessage(text, type) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = `message ${type} show`;
+            
+            setTimeout(() => {
+                message.classList.remove('show');
+            }, 5000);
+        }
+
+        // Drag and drop functionality
+        const uploadSection = document.getElementById('uploadSection');
+
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type.includes('sheet') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    uploadedFile = file;
+                    displayFileInfo(file);
+                    showMessage('File uploaded successfully!', 'success');
+                    document.getElementById('generateBtn').disabled = false;
+                } else {
+                    showMessage('Please upload a valid Excel file (.xlsx or .xls)', 'error');
+                }
+            }
+        });
+
+        // Report generation (placeholder function)
+        async function generateReport() {
+            if (!uploadedFile) {
+                showMessage('Please upload a file first!', 'error');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('generateBtn').disabled = true;
+
+            try {
+                // TODO: Add your Excel processing logic here
+                // Example: const excelData = await processExcelFile(uploadedFile);
+                
+                // Simulate processing time
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // TODO: Add your report generation logic here
+                // Example: reportData = await generateReportData(excelData);
+
+                // For now, we'll create sample data
+                reportData = {
+                    generatedAt: new Date().toLocaleDateString(),
+                    summary: "Sample report generated from uploaded Excel file",
+                    // Add your actual report data structure here
+                };
+
+                // Show the report preview
+                showReportPreview();
+                showMessage('Report generated successfully!', 'success');
+                
+                // Show download button
+                document.getElementById('downloadBtn').style.display = 'inline-block';
+
+            } catch (error) {
+                console.error('Error generating report:', error);
+                showMessage('Error generating report. Please try again.', 'error');
+            } finally {
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('generateBtn').disabled = false;
+            }
+        }
+
+        function showReportPreview() {
+            const reportPreview = document.getElementById('reportPreview');
+            const reportDate = document.getElementById('reportDate');
+            const reportPlaceholder = document.getElementById('reportPlaceholder');
+            const reportActualContent = document.getElementById('reportActualContent');
+
+            // Set report date
+            reportDate.textContent = `Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`;
+
+            // Hide placeholder and show actual content
+            reportPlaceholder.style.display = 'none';
+            
+            // TODO: Replace this with your actual report rendering logic
+            // For now, we'll show a simple message
+            reportPlaceholder.innerHTML = `
+                <div class="icon">✅</div>
+                <p>Report generated successfully!</p>
+                <p style="margin-top: 1rem; font-size: 0.9rem; color: #64748b;">
+                    This is where your processed Excel data and generated report will be displayed.
+                    <br>Add your report rendering logic in the showReportPreview() function.
+                </p>
+            `;
+            reportPlaceholder.style.display = 'block';
+
+            // Show the report preview section
+            reportPreview.classList.add('show');
+        }
+
+        // Download functionality (placeholder)
+        function downloadReport() {
+            if (!reportData) {
+                showMessage('No report data available to download!', 'error');
+                return;
+            }
+
+            // TODO: Add your download logic here
+            // Example: 
+            // const blob = new Blob([reportContent], { type: 'application/pdf' });
+            // const url = URL.createObjectURL(blob);
+            // const a = document.createElement('a');
+            // a.href = url;
+            // a.download = 'report.pdf';
+            // a.click();
+
+            // Placeholder download
+            showMessage('Download functionality will be implemented here!', 'success');
+            console.log('Download report:', reportData);
+        }
+
+        // TODO: Add your Excel processing functions here
+        /*
+        async function processExcelFile(file) {
+            // Add logic to read and process Excel file
+            // You might want to use libraries like:
+            // - SheetJS (XLSX) for reading Excel files
+            // - Papa Parse for CSV processing
+            // Example:
+            // const data = XLSX.read(await file.arrayBuffer(), { type: 'array' });
+            // return processedData;
+        }
+
+        function generateReportData(excelData) {
+            // Add logic to generate report from Excel data
+            // Transform and analyze the data
+            // Return structured report data
+        }
+        */
+
+            document.getElementById('fileInput').addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+
+        // Get the first sheet
+        const sheetName = workbook.SheetNames[0];
+        const sheet = workbook.Sheets[sheetName];
+
+        // Convert sheet to JSON
+        const jsonData = XLSX.utils.sheet_to_json(sheet);
+        document.getElementById('message').textContent = JSON.stringify(jsonData, null, 2);
+        console.log(JSON.stringify(jsonData, null, 2));
+      };
+
+      reader.readAsArrayBuffer(file);
+    });
+    </script>
+</body>
+</html>
