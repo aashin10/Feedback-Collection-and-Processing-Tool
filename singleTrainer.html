@@ -378,17 +378,38 @@ function analyzeExcelData(file) {
                 totalResponses++;
             }
 
-            // Collect feedback on what went wrong - try different possible column names
-            const whatWentWrong = entry["What needs improvement / things you less liked about the program "] ||
-                                entry["What needs improvement"] ||
-                                entry["Things you less liked"] ||
-                                entry["Feedback"] ||
-                                entry["Comments"];
-            
-            if (whatWentWrong && typeof whatWentWrong === 'string' && whatWentWrong.trim()) {
-                whatWentWrongCombined += whatWentWrong + ". ";
+            // Collect feedback on what went wrong - improved logic
+            let whatWentWrong = null;
+
+            // First, try to find the exact column name by looking for key that contains "improvement" or "less liked"
+            const feedbackKey = Object.keys(entry).find(key => 
+                key.toLowerCase().includes('improvement') || 
+                key.toLowerCase().includes('less liked') ||
+                key.toLowerCase().includes('what needs') ||
+                key.toLowerCase().includes('feedback') ||
+                key.toLowerCase().includes('comments')
+            );
+
+            if (feedbackKey) {
+                whatWentWrong = entry[feedbackKey];
             }
-            console.log(whatWentWrong);
+
+            // If we found feedback and it's a valid string, add it to our combined string
+            if (whatWentWrong && typeof whatWentWrong === 'string' && whatWentWrong.trim()) {
+                // Clean up the feedback text and add it
+                const cleanedFeedback = whatWentWrong.trim();
+                whatWentWrongCombined += cleanedFeedback;
+                
+                // Add period and space if the feedback doesn't already end with punctuation
+                if (!cleanedFeedback.match(/[.!?]$/)) {
+                    whatWentWrongCombined += ". ";
+                } else {
+                    whatWentWrongCombined += " ";
+                }
+            }
+
+            console.log(`Entry ${index} feedback:`, whatWentWrong);
+            console.log(`Current combined length:`, whatWentWrongCombined.length);
         });
     } catch (error) {
         console.error("Error during forEach processing:", error);
@@ -451,15 +472,21 @@ function analyzeExcelData(file) {
 
     console.log("courseName:", courseName);
     console.log("Batch Info:", batchInfo);
-    console.log("whatWentWrongCombined:", whatWentWrongCombined.substring(0, 200) + "...");
+    console.log("whatWentWrongCombined:", whatWentWrongCombined);
 
-    
+
+
+    //ask gemini to summarize
+    let gemimiResponse = summarizeGemini("here is a paragraph containing combined feedback about 'what went wrong' from all the users who attended a training section from a trainer. summarize this into 4 key points where the trainer can i improve and what can be changed in the training. keep it short by only writing these 4 summary points and nothing else: '" + whatWentWrongCombined + "'");
+    console.log("Gemini Response:", gemimiResponse);
+
+
 
     // Create the report summary - ensure all values are serializable
     const reportSummaryData = {
         questionAnalysis: questionStats,
         totalRatingOfTrainer: parseFloat(averageRating.toFixed(2)),
-        noOfResponses: noOfResponses, // Fixed typo: "noOfResposes" -> "noOfResponses"
+        noOfResponses: totalResponses, // Fixed: was "noOfResposes"
         trainerName: currentTrainerName || "",
         batchName: batchInfo || "",
         courseName: courseName || "",
@@ -565,38 +592,39 @@ document.getElementById('fileInput').addEventListener('change', (event) => {
 
 //Gemini SetUp
 
-// async function initGemini() {
-//   const API_KEY = "AIzaSyCdXfS6CzvUzoq1Jo_x5HMdvtp_ykImrQM"; // 🔑 Replace with your actual key
-//   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" + API_KEY;
+async function summarizeGemini(prompt) {
+  const API_KEY = "myKey"; // 🔑 Replace with your actual key
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" + API_KEY;
 
-//   const requestBody = {
-//     contents: [
-//       { parts: [{ text: "Explain how AI works in a few words" }] }
-//     ]
-//   };
+  const requestBody = {
+    contents: [
+      { parts: [{ text: prompt }] }
+    ]
+  };
 
-//   try {
-//     const response = await fetch(url, {
-//       method: "POST",
-//       headers: {
-//         "Content-Type": "application/json"
-//       },
-//       body: JSON.stringify(requestBody)
-//     });
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(requestBody)
+    });
 
-//     const data = await response.json();
-//     console.log("Gemini response:", data);
+    const data = await response.json();
+    console.log("Gemini response:", data);
 
-//     // Extract actual text
-//     const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-//     console.log("AI says:", aiText);
-//   } catch (err) {
-//     console.error("Error calling Gemini API:", err);
-//   }
-// }
+    // Extract actual text
+    const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    console.log("AI says:", aiText);
+  } catch (err) {
+    console.error("Error calling Gemini API:", err);
+  }
+  return aiText;
+}
 
-// // Run it on page load
-// initGemini();
+// Run it on page load
+
 
 
     </script>
