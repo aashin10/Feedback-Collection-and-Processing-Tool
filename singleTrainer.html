@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Excel Report Generator</title>
-    <link rel="stylesheet" href="styles/singleTrainerStyles.css"/>
+    <link rel="stylesheet" href="styles/singleTrainerStyles.css" />
 </head>
+
 <body>
     <div class="container">
         <!-- Header -->
@@ -25,7 +27,7 @@
                 </div>
             </div>
             <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
-            
+
             <!-- File Info Display -->
             <div class="file-info" id="fileInfo">
                 <div class="file-icon">📄</div>
@@ -34,6 +36,19 @@
                     <p id="fileSize"></p>
                 </div>
             </div>
+
+            <div class="trainer-input" id="trainerInput" style="margin-top: 15px; display: flex; width: 100%;">
+                <div style="width: 50%; display: flex;">
+                <label for="trainerName"><strong>Trainer Name:</strong></label>
+                <input type="text" id="trainerName" placeholder="Enter trainer name" style="padding:8px; margin-left:10px; border-radius:5px; border:1px solid #ccc; width: 250px;">
+                </div>
+                <!-- <div style="width: 50%; display: flex; justify-content: right;">
+                <label for="batchName"><strong>Batch Name:</strong></label>
+                <input type="text" id="batchName" placeholder="Enter Batch name" style="padding:8px; margin-left: 10px; border-radius:5px; border:1px solid #ccc; width: 250px;">
+                </div> -->
+            </div>
+
+            
 
             <!-- Messages -->
             <div class="message" id="message"></div>
@@ -63,235 +78,528 @@
                 </div>
                 <div class="report-date" id="reportDate"></div>
             </div>
-            
+
             <div class="report-content">
-                <!-- Placeholder - This is where your actual report content will go -->
+                <!-- Iframe for embedding feedbackReport.html -->
+                <iframe id="reportFrame" src=""
+                    style="width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 6px; display: none;">
+                </iframe>
+
+                <!-- Placeholder before report is generated -->
                 <div class="report-placeholder" id="reportPlaceholder">
                     <div class="icon">📈</div>
                     <p>Your report will appear here once generated</p>
                 </div>
-                
-                <!-- Sample content structure (hidden by default) -->
-                <div id="reportActualContent" style="display: none;">
-                    <!-- This is where you'll inject your actual report content -->
-                    <h3>Report Summary</h3>
-                    <table class="sample-table">
-                        <thead>
-                            <tr>
-                                <th>Metric</th>
-                                <th>Value</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="reportTableBody">
-                            <!-- Data will be populated here -->
-                        </tbody>
-                    </table>
-                </div>
             </div>
         </div>
+
     </div>
     <!-- Excel data extract package -->
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
+    <!-- <script type="module" src="scripts/singleTrainer.js"></script> -->
     <script>
         let uploadedFile = null;
-        let reportData = null;
+let reportData = null;
+let jsonData;
+var trainerName;
+var batchName;
+var fileName;
+let reportSummary = null;
+let noOfResponses;
+// var whatWentWrong = {};
+// var improvemts = {};
 
-        // File upload handling
-        function handleFileSelect(event) {
-            const file = event.target.files[0];
-            if (file) {
-                uploadedFile = file;
-                displayFileInfo(file);
-                showMessage('File uploaded successfully!', 'success');
-                document.getElementById('generateBtn').disabled = false;
-            }
+// File upload handling
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+        uploadedFile = file;
+        displayFileInfo(file);
+        showMessage('File uploaded successfully!', 'success');
+        document.getElementById('generateBtn').disabled = false;
+    }
+}
+
+function displayFileInfo(file) {
+    const fileInfo = document.getElementById('fileInfo');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+
+    fileName.textContent = file.name;
+    fileSize.textContent = `Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+    fileInfo.classList.add('show');
+}
+
+function showMessage(text, type) {
+    const message = document.getElementById('message');
+    message.textContent = text;
+    message.className = `message ${type} show`;
+
+    setTimeout(() => {
+        message.classList.remove('show');
+    }, 5000);
+}
+
+// Drag and drop functionality
+const uploadSection = document.getElementById('uploadSection');
+
+uploadSection.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadSection.classList.add('dragover');
+});
+
+uploadSection.addEventListener('dragleave', () => {
+    uploadSection.classList.remove('dragover');
+});
+
+uploadSection.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadSection.classList.remove('dragover');
+
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        const file = files[0];
+        if (file.type.includes('sheet') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+            uploadedFile = file;
+            displayFileInfo(file);
+            showMessage('File uploaded successfully!', 'success');
+            document.getElementById('generateBtn').disabled = false;
+        } else {
+            showMessage('Please upload a valid Excel file (.xlsx or .xls)', 'error');
+        }
+    }
+});
+
+// Enhanced saveSummary function with better error handling
+function saveSummary(summary) {
+    try {
+        console.log("Attempting to save to localStorage:", summary);
+        
+        // Check if the summary object is valid
+        if (!summary || typeof summary !== 'object') {
+            throw new Error("Invalid summary data");
         }
 
-        function displayFileInfo(file) {
-            const fileInfo = document.getElementById('fileInfo');
-            const fileName = document.getElementById('fileName');
-            const fileSize = document.getElementById('fileSize');
-
-            fileName.textContent = file.name;
-            fileSize.textContent = `Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
-            fileInfo.classList.add('show');
+        const summaryString = JSON.stringify(summary);
+        console.log("Summary string length:", summaryString.length);
+        
+        localStorage.setItem('reportSummary', summaryString);
+        console.log("Successfully saved to localStorage");
+        
+        // Verify the save worked
+        const verifyData = localStorage.getItem('reportSummary');
+        if (verifyData) {
+            const parsedData = JSON.parse(verifyData);
+            console.log("Verification successful - Data keys:", Object.keys(parsedData));
+        } else {
+            throw new Error("Verification failed - no data found after save");
         }
+    } catch (error) {
+        console.error("Error saving to localStorage:", error);
+        alert("Failed to save report summary to localStorage: " + error.message);
+        throw error;
+    }
+}
 
-        function showMessage(text, type) {
-            const message = document.getElementById('message');
-            message.textContent = text;
-            message.className = `message ${type} show`;
-            
-            setTimeout(() => {
-                message.classList.remove('show');
-            }, 5000);
-        }
+// Process Excel file
+function processExcelFile(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
 
-        // Drag and drop functionality
-        const uploadSection = document.getElementById('uploadSection');
-
-        uploadSection.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadSection.classList.add('dragover');
-        });
-
-        uploadSection.addEventListener('dragleave', () => {
-            uploadSection.classList.remove('dragover');
-        });
-
-        uploadSection.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadSection.classList.remove('dragover');
-            
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                const file = files[0];
-                if (file.type.includes('sheet') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-                    uploadedFile = file;
-                    displayFileInfo(file);
-                    showMessage('File uploaded successfully!', 'success');
-                    document.getElementById('generateBtn').disabled = false;
-                } else {
-                    showMessage('Please upload a valid Excel file (.xlsx or .xls)', 'error');
-                }
-            }
-        });
-
-        // Report generation (placeholder function)
-        async function generateReport() {
-            if (!uploadedFile) {
-                showMessage('Please upload a file first!', 'error');
-                return;
-            }
-
-            // Show loading
-            document.getElementById('loading').style.display = 'block';
-            document.getElementById('generateBtn').disabled = true;
-
+        reader.onload = (e) => {
             try {
-                // TODO: Add your Excel processing logic here
-                // Example: const excelData = await processExcelFile(uploadedFile);
+                console.log("Starting Excel file processing...");
                 
-                // Simulate processing time
-                await new Promise(resolve => setTimeout(resolve, 2000));
-
-                // TODO: Add your report generation logic here
-                // Example: reportData = await generateReportData(excelData);
-
-                // For now, we'll create sample data
-                reportData = {
-                    generatedAt: new Date().toLocaleDateString(),
-                    summary: "Sample report generated from uploaded Excel file",
-                    // Add your actual report data structure here
-                };
-
-                // Show the report preview
-                showReportPreview();
-                showMessage('Report generated successfully!', 'success');
+                const data = new Uint8Array(e.target.result);
+                console.log("File data loaded, size:", data.length, "bytes");
                 
-                // Show download button
-                document.getElementById('downloadBtn').style.display = 'inline-block';
+                const workbook = XLSX.read(data, { type: 'array' });
+                console.log("Workbook loaded, sheets:", workbook.SheetNames);
 
+                // Validate workbook has sheets
+                if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                    throw new Error('No sheets found in the Excel file');
+                }
+
+                // Get the first sheet
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                
+                if (!sheet) {
+                    throw new Error(`Sheet '${sheetName}' not found in the workbook`);
+                }
+
+                console.log("Processing sheet:", sheetName);
+
+                // Convert sheet to JSON
+                jsonData = XLSX.utils.sheet_to_json(sheet);
+                console.log("Excel data loaded:", jsonData);
+                console.log("Number of rows processed:", jsonData.length);
+                console.log("Data type check - is array:", Array.isArray(jsonData));
+                noOfResponses = jsonData.length;
+
+                // Validate the converted data
+                if (!Array.isArray(jsonData)) {
+                    throw new Error('Failed to convert Excel data to array format');
+                }
+
+                if (jsonData.length === 0) {
+                    throw new Error('Excel sheet appears to be empty or contains no data rows');
+                }
+
+                // Log sample of first row to understand data structure
+                if (jsonData.length > 0) {
+                    console.log("Sample data (first row keys):", Object.keys(jsonData[0]));
+                    console.log("Sample data (first row):", jsonData[0]);
+                }
+
+                // Validate that we have meaningful data
+                const firstRow = jsonData[0];
+                const hasData = Object.keys(firstRow).some(key => 
+                    firstRow[key] !== undefined && 
+                    firstRow[key] !== null && 
+                    firstRow[key] !== ''
+                );
+
+                if (!hasData) {
+                    throw new Error('Excel sheet contains no meaningful data');
+                }
+
+                console.log("Excel data validation passed. Starting analysis...");
+
+                // Process the data
+                const processedData = analyzeExcelData(file);
+                
+                console.log("Analysis completed successfully");
+                resolve(processedData);
+                
             } catch (error) {
-                console.error('Error generating report:', error);
-                showMessage('Error generating report. Please try again.', 'error');
-            } finally {
-                // Hide loading
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('generateBtn').disabled = false;
+                console.error("Error in processExcelFile:", error);
+                console.error("Error details:", {
+                    name: error.name,
+                    message: error.message,
+                    stack: error.stack
+                });
+                
+                // Provide more specific error messages
+                let userFriendlyMessage = error.message;
+                
+                if (error.message.includes('XLSX')) {
+                    userFriendlyMessage = 'Failed to read Excel file. Please ensure it\'s a valid .xlsx or .xls file.';
+                } else if (error.message.includes('empty')) {
+                    userFriendlyMessage = 'The Excel file appears to be empty. Please check that it contains data.';
+                } else if (error.message.includes('sheets')) {
+                    userFriendlyMessage = 'No sheets found in the Excel file. Please check the file format.';
+                }
+
+                reject(new Error(userFriendlyMessage));
             }
+        };
+
+        reader.onerror = (error) => {
+            console.error("FileReader error:", error);
+            reject(new Error('Failed to read the selected file. Please try again.'));
+        };
+
+        // Validate file before processing
+        if (!file) {
+            reject(new Error('No file provided for processing'));
+            return;
         }
 
-        function showReportPreview() {
-            const reportPreview = document.getElementById('reportPreview');
-            const reportDate = document.getElementById('reportDate');
-            const reportPlaceholder = document.getElementById('reportPlaceholder');
-            const reportActualContent = document.getElementById('reportActualContent');
-
-            // Set report date
-            reportDate.textContent = `Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`;
-
-            // Hide placeholder and show actual content
-            reportPlaceholder.style.display = 'none';
-            
-            // TODO: Replace this with your actual report rendering logic
-            // For now, we'll show a simple message
-            reportPlaceholder.innerHTML = `
-                <div class="icon">✅</div>
-                <p>Report generated successfully!</p>
-                <p style="margin-top: 1rem; font-size: 0.9rem; color: #64748b;">
-                    This is where your processed Excel data and generated report will be displayed.
-                    <br>Add your report rendering logic in the showReportPreview() function.
-                </p>
-            `;
-            reportPlaceholder.style.display = 'block';
-
-            // Show the report preview section
-            reportPreview.classList.add('show');
+        console.log("Reading file:", file.name, "Size:", file.size, "bytes", "Type:", file.type);
+        
+        // Check file size (optional - adjust limit as needed)
+        const maxSize = 50 * 1024 * 1024; // 50MB limit
+        if (file.size > maxSize) {
+            reject(new Error('File is too large. Please select a file smaller than 50MB.'));
+            return;
         }
 
-        // Download functionality (placeholder)
-        function downloadReport() {
-            if (!reportData) {
-                showMessage('No report data available to download!', 'error');
-                return;
-            }
-
-            // TODO: Add your download logic here
-            // Example: 
-            // const blob = new Blob([reportContent], { type: 'application/pdf' });
-            // const url = URL.createObjectURL(blob);
-            // const a = document.createElement('a');
-            // a.href = url;
-            // a.download = 'report.pdf';
-            // a.click();
-
-            // Placeholder download
-            showMessage('Download functionality will be implemented here!', 'success');
-            console.log('Download report:', reportData);
+        // Check file extension
+        const validExtensions = ['.xlsx', '.xls'];
+        const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+        if (!validExtensions.includes(fileExtension)) {
+            reject(new Error('Invalid file type. Please select an Excel file (.xlsx or .xls).'));
+            return;
         }
 
-        // TODO: Add your Excel processing functions here
-        /*
-        async function processExcelFile(file) {
-            // Add logic to read and process Excel file
-            // You might want to use libraries like:
-            // - SheetJS (XLSX) for reading Excel files
-            // - Papa Parse for CSV processing
-            // Example:
-            // const data = XLSX.read(await file.arrayBuffer(), { type: 'array' });
-            // return processedData;
-        }
-
-        function generateReportData(excelData) {
-            // Add logic to generate report from Excel data
-            // Transform and analyze the data
-            // Return structured report data
-        }
-        */
-
-            document.getElementById('fileInput').addEventListener('change', (event) => {
-      const file = event.target.files[0];
-      const reader = new FileReader();
-
-      reader.onload = (e) => {
-        const data = new Uint8Array(e.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-
-        // Get the first sheet
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-
-        // Convert sheet to JSON
-        const jsonData = XLSX.utils.sheet_to_json(sheet);
-        document.getElementById('message').textContent = JSON.stringify(jsonData, null, 2);
-        console.log(JSON.stringify(jsonData, null, 2));
-      };
-
-      reader.readAsArrayBuffer(file);
+        reader.readAsArrayBuffer(file);
     });
+}
+
+// Fixed analyzeExcelData function
+function analyzeExcelData(file) {
+    // Validate that jsonData exists and is an array
+    if (!jsonData || !Array.isArray(jsonData)) {
+        throw new Error("jsonData is not available or not an array. Current type: " + typeof jsonData);
+    }
+
+    if (jsonData.length === 0) {
+        throw new Error("No data found in the Excel file");
+    }
+
+    console.log("Starting analysis with", jsonData.length, "entries");
+
+    // Global counters
+    const globalCounts = { Excellent: 0, "Very Good": 0, Good: 0, Average: 0, Poor: 0 };
+    let totalRating = 0;
+    let totalResponses = 0;
+
+    // String to hold all feedbacks
+    let whatWentWrongCombined = "";
+
+    try {
+        jsonData.forEach((entry, index) => {
+            console.log(`Processing entry ${index}:`, entry);
+            
+            const personalCount = { Excellent: 0, "Very Good": 0, Good: 0, Average: 0, Poor: 0 };
+
+            // Count ratings
+            Object.entries(entry).forEach(([key, val]) => {
+                if (typeof val === 'string' && globalCounts.hasOwnProperty(val)) {
+                    personalCount[val]++;
+                    globalCounts[val]++;
+                }
+            });
+
+            // Attach per-person count
+            entry["CombinedCounts"] = personalCount;
+
+            // Handle overall rating - try different possible column names
+            let overallRating = entry["Overall program rating"] || 
+                              entry["Overall Program Rating"] ||
+                              entry["overall_program_rating"] ||
+                              entry["Overall Rating"];
+            
+            if (overallRating && !isNaN(parseFloat(overallRating))) {
+                totalRating += parseFloat(overallRating);
+                totalResponses++;
+            }
+
+            // Collect feedback on what went wrong - try different possible column names
+            const whatWentWrong = entry["What needs improvement / things you less liked about the program "] ||
+                                entry["What needs improvement"] ||
+                                entry["Things you less liked"] ||
+                                entry["Feedback"] ||
+                                entry["Comments"];
+            
+            if (whatWentWrong && typeof whatWentWrong === 'string' && whatWentWrong.trim()) {
+                whatWentWrongCombined += whatWentWrong + ". ";
+            }
+            console.log(whatWentWrong);
+        });
+    } catch (error) {
+        console.error("Error during forEach processing:", error);
+        throw new Error("Error processing Excel data: " + error.message);
+    }
+
+    // Clean up the combined feedback string
+    whatWentWrongCombined = whatWentWrongCombined.trim();
+    console.log("Combined feedback length:", whatWentWrongCombined.length);
+
+    // Calculate overall avg rating (avoid division by zero)
+    const averageRating = totalResponses > 0 ? totalRating / totalResponses : 0;
+    console.log("Average Overall Rating:", averageRating.toFixed(2));
+
+    // Ratings we care about
+    const ratingOptions = ["Excellent", "Very Good", "Good", "Average", "Poor"];
+
+    // Object to hold results
+    const questionStats = {};
+
+    // Iterate through each row (response)
+    try {
+        jsonData.forEach(entry => {
+            Object.entries(entry).forEach(([question, answer]) => {
+                if (typeof answer === 'string' && ratingOptions.includes(answer)) {
+                    // Initialize stats for this question if not already present
+                    if (!questionStats[question]) {
+                        questionStats[question] = {
+                            Excellent: 0,
+                            "Very Good": 0,
+                            Good: 0,
+                            Average: 0,
+                            Poor: 0
+                        };
+                    }
+                    // Increment the correct bucket
+                    questionStats[question][answer]++;
+                }
+            });
+        });
+    } catch (error) {
+        console.error("Error during question analysis:", error);
+        throw new Error("Error analyzing questions: " + error.message);
+    }
+
+    // Get trainer name
+    const trainerInput = document.getElementById('trainerName');
+    const currentTrainerName = trainerInput ? trainerInput.value.trim() : "";
+
+    // Get file name
+    const currentFileName = file ? file.name : "";
+
+    // Extract course name
+    const angularMatch = currentFileName.match(/_(.*?)_/);
+    const courseName = angularMatch ? angularMatch[1] : "Not found";
+
+    // Extract batch info
+    const batchMatch = currentFileName.match(/(ILP).*?Batch\s\d+.*?_(\d{4}-\d{2})/);
+    const batchInfo = batchMatch ? `${batchMatch[1]} ${batchMatch[2]} Batch 5` : "Not found";
+
+    console.log("courseName:", courseName);
+    console.log("Batch Info:", batchInfo);
+    console.log("whatWentWrongCombined:", whatWentWrongCombined.substring(0, 200) + "...");
+
+    
+
+    // Create the report summary - ensure all values are serializable
+    const reportSummaryData = {
+        questionAnalysis: questionStats,
+        totalRatingOfTrainer: parseFloat(averageRating.toFixed(2)),
+        noOfResponses: noOfResponses, // Fixed typo: "noOfResposes" -> "noOfResponses"
+        trainerName: currentTrainerName || "",
+        batchName: batchInfo || "",
+        courseName: courseName || "",
+        timestamp: new Date().toISOString(),
+        globalCounts: globalCounts,
+        whatWentWrongCombined: whatWentWrongCombined || "" // Added the combined feedback
+    };
+
+    console.log("Final Report Summary before saving:", reportSummaryData);
+
+    // Save to localStorage
+    saveSummary(reportSummaryData);
+
+    // Update global reportSummary variable
+    reportSummary = reportSummaryData;
+
+    return reportSummaryData;
+}
+
+
+// Report generation
+async function generateReport() {
+    if (!uploadedFile) {
+        showMessage('Please upload a file first!', 'error');
+        return;
+    }
+
+    trainerName = document.getElementById('trainerName').value.trim();
+    if (!trainerName) {
+        showMessage('Please enter the trainer name before generating report.', 'error');
+        return;
+    }
+
+    // Show loading
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('generateBtn').disabled = true;
+
+    try {
+        // Process the Excel file
+        reportData = await processExcelFile(uploadedFile);
+
+        // Show the report preview
+        showReportPreview();
+        showMessage('Report generated successfully!', 'success');
+
+        // Show download button
+        document.getElementById('downloadBtn').style.display = 'inline-block';
+
+        // Now you can access reportSummary here
+        console.log("Report Summary is now available:", reportSummary);
+
+    } catch (error) {
+        console.error('Error generating report:', error);
+        showMessage('Error generating report. Please try again.', 'error');
+    } finally {
+        // Hide loading
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('generateBtn').disabled = false;
+    }
+}
+
+function showReportPreview() {
+    const reportPreview = document.getElementById('reportPreview');
+    const reportDate = document.getElementById('reportDate');
+    const reportPlaceholder = document.getElementById('reportPlaceholder');
+    const reportFrame = document.getElementById('reportFrame');
+
+    // Set report date
+    reportDate.textContent = `Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`;
+
+    // Hide placeholder
+    if (reportPlaceholder) {
+        reportPlaceholder.style.display = 'none';
+    }
+
+    // Show iframe with feedbackReport.html
+    reportFrame.src = "feedbackReport.html";
+    reportFrame.style.display = "block";
+
+    // Make sure the preview section is visible
+    reportPreview.classList.add('show');
+}
+
+// Download functionality
+function downloadReport() {
+    if (!reportData) {
+        showMessage('No report data available to download!', 'error');
+        return;
+    }
+
+    // TODO: Add your download logic here
+    showMessage('Download functionality will be implemented here!', 'success');
+    console.log('Download report:', reportData);
+}
+
+// Set up the file input event listener
+document.getElementById('fileInput').addEventListener('change', (event) => {
+    handleFileSelect(event);
+});
+
+
+
+
+//Gemini SetUp
+
+// async function initGemini() {
+//   const API_KEY = "AIzaSyCdXfS6CzvUzoq1Jo_x5HMdvtp_ykImrQM"; // 🔑 Replace with your actual key
+//   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" + API_KEY;
+
+//   const requestBody = {
+//     contents: [
+//       { parts: [{ text: "Explain how AI works in a few words" }] }
+//     ]
+//   };
+
+//   try {
+//     const response = await fetch(url, {
+//       method: "POST",
+//       headers: {
+//         "Content-Type": "application/json"
+//       },
+//       body: JSON.stringify(requestBody)
+//     });
+
+//     const data = await response.json();
+//     console.log("Gemini response:", data);
+
+//     // Extract actual text
+//     const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+//     console.log("AI says:", aiText);
+//   } catch (err) {
+//     console.error("Error calling Gemini API:", err);
+//   }
+// }
+
+// // Run it on page load
+// initGemini();
+
+
     </script>
 </body>
+
 </html>

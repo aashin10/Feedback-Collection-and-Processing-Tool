@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ILP - Angular Final Feedback Analysis</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .report-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, #9c4a7a, #b85c8a);
+            color: white;
+            text-align: center;
+            padding: 15px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .program-info {
+            background-color: #e8d4dd;
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .program-info td {
+            padding: 12px 15px;
+            border: 1px solid #d1b3c4;
+            font-weight: bold;
+            color: #5a3d4a;
+        }
+
+        .program-info .label {
+            background-color: #d1b3c4;
+            width: 20%;
+        }
+
+        .rating-section {
+            background-color: #5a3d4a;
+            color: white;
+            text-align: center;
+            padding: 8px;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .ratings-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: #e8d4dd;
+        }
+
+        .ratings-table th {
+            background-color: #b85c8a;
+            color: white;
+            padding: 12px 8px;
+            text-align: center;
+            font-size: 11px;
+            font-weight: bold;
+            border: 1px solid #9c4a7a;
+            vertical-align: top;
+            line-height: 1.3;
+        }
+
+        .ratings-table td {
+            padding: 8px;
+            text-align: center;
+            border: 1px solid #d1b3c4;
+            color: #5a3d4a;
+            font-weight: bold;
+        }
+
+        .ratings-table .rating-label {
+            background-color: #d1b3c4;
+            text-align: left;
+            padding-left: 15px;
+            font-weight: bold;
+        }
+
+        .ratings-table .total-row {
+            background-color: #c7a8b8;
+            font-weight: bold;
+        }
+
+        .feedback-section {
+            margin-top: 20px;
+        }
+
+        .feedback-header {
+            background-color: #d1b3c4;
+            color: #5a3d4a;
+            padding: 12px 15px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .feedback-content {
+            background-color: #f9f5f7;
+            padding: 15px;
+            border: 1px solid #d1b3c4;
+            line-height: 1.6;
+            color: #333;
+        }
+
+        .feedback-item {
+            margin-bottom: 15px;
+        }
+
+        .feedback-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .spacer {
+            background-color: #5a3d4a;
+            height: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="report-container">
+        <!-- Header -->
+        <div class="header" id="report-title">
+            ILP - (Angular Final Feedback Analysis)
+        </div>
+
+        <!-- Program Information -->
+        <table class="program-info">
+            <tr>
+                <td class="label" for="batch-name">Batch Name</td>
+                <td id="batch-name">ILP 2023-24 Batch 5</td>
+                <td class="label" for="trainee-count">Total Trainee Count</td>
+                <td id="trainee-count">20</td>
+                <td class="label" for="trainer-name">Trainer Name</td>
+                <td id="trainer-name">Ashin Amanulla</td>
+                <td class="label" for="overall-rating">Overall Program Rating—Out of 5</td>
+                <td id="overall-rating">4.6</td>
+            </tr>
+        </table>
+
+        <div class="spacer"></div>
+
+        <!-- Ratings Section -->
+        <div class="rating-section">
+            Detailed Feedback Analysis
+        </div>
+
+        <table class="ratings-table">
+            <thead>
+                <tr>
+                    <th style="background-color: #d1b3c4; color: #5a3d4a;"></th>
+                    <th id="criterion-1-header" for="criterion-1-data">The trainer provided me adequate opportunity to ask questions/clarify the concepts</th>
+                    <th id="criterion-2-header" for="criterion-2-data">Included an appropriate number of activities, exercise, and interaction during the session</th>
+                    <th id="criterion-3-header" for="criterion-3-data">The trainer is a subject matter expert and is approachable</th>
+                    <th id="criterion-4-header" for="criterion-4-data">The trainer encouraged participation and enthusiasm throughout the class</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td class="rating-label">Excellent</td>
+                    <td id="criterion-1-excellent" for="criterion-1-data">12</td>
+                    <td id="criterion-2-excellent" for="criterion-2-data">11</td>
+                    <td id="criterion-3-excellent" for="criterion-3-data">11</td>
+                    <td id="criterion-4-excellent" for="criterion-4-data">12</td>
+                </tr>
+                <tr>
+                    <td class="rating-label">Very good</td>
+                    <td id="criterion-1-very-good" for="criterion-1-data">6</td>
+                    <td id="criterion-2-very-good" for="criterion-2-data">8</td>
+                    <td id="criterion-3-very-good" for="criterion-3-data">7</td>
+                    <td id="criterion-4-very-good" for="criterion-4-data">7</td>
+                </tr>
+                <tr>
+                    <td class="rating-label">Good</td>
+                    <td id="criterion-1-good" for="criterion-1-data">2</td>
+                    <td id="criterion-2-good" for="criterion-2-data">1</td>
+                    <td id="criterion-3-good" for="criterion-3-data">2</td>
+                    <td id="criterion-4-good" for="criterion-4-data">1</td>
+                </tr>
+                <tr>
+                    <td class="rating-label">Average</td>
+                    <td id="criterion-1-average" for="criterion-1-data">0</td>
+                    <td id="criterion-2-average" for="criterion-2-data">0</td>
+                    <td id="criterion-3-average" for="criterion-3-data">0</td>
+                    <td id="criterion-4-average" for="criterion-4-data">0</td>
+                </tr>
+                <tr>
+                    <td class="rating-label">Poor</td>
+                    <td id="criterion-1-poor" for="criterion-1-data">0</td>
+                    <td id="criterion-2-poor" for="criterion-2-data">0</td>
+                    <td id="criterion-3-poor" for="criterion-3-data">0</td>
+                    <td id="criterion-4-poor" for="criterion-4-data">0</td>
+                </tr>
+                <tr class="total-row">
+                    <td class="rating-label">Total responded trainees</td>
+                    <td id="criterion-1-total" for="criterion-1-data">20</td>
+                    <td id="criterion-2-total" for="criterion-2-data">20</td>
+                    <td id="criterion-3-total" for="criterion-3-data">20</td>
+                    <td id="criterion-4-total" for="criterion-4-data">20</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="spacer"></div>
+
+        <!-- Positive Feedback Section -->
+        <div class="feedback-section">
+            <div class="feedback-header" id="positive-feedback-header">
+                What went well / things you most liked about the program (Comments by trainees)
+            </div>
+            <div class="feedback-content" id="positive-feedback-content" for="positive-feedback-data">
+                <div class="feedback-item">
+                    For each use case, there was a hands-on implementation that effectively reinforced the understanding of the topic. The facilitator was highly approachable, encouraging active participation by the students, which made the learning experience engaging and productive.
+                </div>
+                <div class="feedback-item">
+                    It was a fun and engaging session and felt like each moment was worth it. Also helped to learn a lot of new things and had fun while going through this whole learning process.
+                </div>
+                <div class="feedback-item">
+                    The trainer allotted sufficient time to clarify doubts, ensuring a thorough understanding of the topics covered, provided clarity on concepts through examples.
+                </div>
+                <div class="feedback-item">
+                    Explaining about the each topics was good, and the explaining of the related syntax was good.
+                </div>
+            </div>
+        </div>
+
+        <!-- Improvement Feedback Section -->
+        <div class="feedback-section">
+            <div class="feedback-header" id="improvement-feedback-header">
+                What needs improvement / things you less liked about the program (Comments by trainees)
+            </div>
+            <div class="feedback-content" id="improvement-feedback-content" for="improvement-feedback-data">
+                <div class="feedback-item">
+                    Including more assessments would further solidify application of the concepts
+                </div>
+                <div class="feedback-item">
+                    In my opinion, more classes are necessary.
+                </div>
+                <div class="feedback-item">
+                    Could give more exercises for each topic covered.
+                </div>
+                <div class="feedback-item">
+                    Duration was too short enough to learn all topics.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Example function to populate data from API
+        function populateReportFromAPI(apiData) {
+            // Program Information
+            document.getElementById('batch-name').textContent = apiData.batchName || 'N/A';
+            document.getElementById('trainee-count').textContent = apiData.traineeCount || 'N/A';
+            document.getElementById('trainer-name').textContent = apiData.trainerName || 'N/A';
+            document.getElementById('overall-rating').textContent = apiData.overallRating || 'N/A';
+            
+            // Ratings data
+            if (apiData.ratings) {
+                const criteria = ['criterion-1', 'criterion-2', 'criterion-3', 'criterion-4'];
+                const ratingLevels = ['excellent', 'very-good', 'good', 'average', 'poor', 'total'];
+                
+                criteria.forEach((criterion, index) => {
+                    ratingLevels.forEach(level => {
+                        const elementId = `${criterion}-${level}`;
+                        const element = document.getElementById(elementId);
+                        if (element && apiData.ratings[index] && apiData.ratings[index][level] !== undefined) {
+                            element.textContent = apiData.ratings[index][level];
+                        }
+                    });
+                });
+            }
+            
+            // Feedback comments
+            if (apiData.positiveFeedback) {
+                const positiveContainer = document.getElementById('positive-feedback-content');
+                positiveContainer.innerHTML = '';
+                apiData.positiveFeedback.forEach(comment => {
+                    const div = document.createElement('div');
+                    div.className = 'feedback-item';
+                    div.textContent = comment;
+                    positiveContainer.appendChild(div);
+                });
+            }
+            
+            if (apiData.improvementFeedback) {
+                const improvementContainer = document.getElementById('improvement-feedback-content');
+                improvementContainer.innerHTML = '';
+                apiData.improvementFeedback.forEach(comment => {
+                    const div = document.createElement('div');
+                    div.className = 'feedback-item';
+                    div.textContent = comment;
+                    improvementContainer.appendChild(div);
+                });
+            }
+        }
+
+        // Example usage:
+        // populateReportFromAPI(yourApiData);
+    </script>
+</body>
+</html>

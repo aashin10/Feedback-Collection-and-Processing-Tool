@@ -81,8 +81,8 @@
 </head>
 <body>
 
-  <div class="header">
-    ILP - (Angular Final Feedback Analysis)
+  <div class="header" id="courseNameDisplay">
+    
   </div>
 
   <table class="info-table">
@@ -93,50 +93,54 @@
       <th>Overall Program Rating — Out of 5</th>
     </tr>
     <tr>
-      <td>ILP 2023-24 Batch 5</td>
-      <td>20</td>
-      <td>Ashin Amanulla</td>
-      <td>4.6</td>
+      <td id="batchNameDisplay" style="width: 25%;"></td>
+      <td for="totalTraineeCount" id="responsesCountDisplay" style="width: 25%;"></td>
+      <td for="Trainer-name" id="trainerNameDisplay" style="width: 25%;"></td>
+      <td for="overall-Rating" id="overallRatingDisplay" style="width: 25%;"></td>
     </tr>
   </table>
 
   <table class="rating-table">
     <tr>
-      <th>The trainer provided me adequate opportunity to ask questions/clarify the concepts</th>
-      <th>Included an appropriate number of activities, exercise, and interaction during the session</th>
-      <th>The trainer is a subject matter expert and is approachable</th>
-      <th>The trainer encouraged participation and enthusiasm throughout the class</th>
+<!-- Dynamically add the questions as headers(don't add "Attention was paid to details like arrangements, i.e., the location, seating arrangements, projector, etc.") parse this out -->
     </tr>
     <tr>
-      <td>Excellent</td>
-      <td>Excellent</td>
-      <td>Excellent</td>
-      <td>Excellent</td>
+      <!-- Dynamically add each td's instead of hardcoded values for the correspoding questions here -->
+      <!-- <td>Excellent</td><td>0</td>
+      <td>Excellent</td><td>0</td>
+      <td>Excellent</td><td>0</td>
+      <td>Excellent</td><td>0</td>
     </tr>
     <tr>
-      <td>Very Good</td>
-      <td>Very Good</td>
-      <td>Very Good</td>
-      <td>Very Good</td>
+      <td>Very Good</td><td>0</td>
+      <td>Very Good</td><td>0</td>
+      <td>Very Good</td><td>0</td>
+      <td>Very Good</td><td>0</td>
     </tr>
     <tr>
-      <td>Good</td>
-      <td>Good</td>
-      <td>Good</td>
-      <td>Good</td>
+      <td>Very Good</td><td>0</td>
+      <td>Very Good</td><td>0</td>
+      <td>Very Good</td><td>0</td>
+      <td>Very Good</td><td>0</td>
     </tr>
     <tr>
-      <td>Average</td>
-      <td>Average</td>
-      <td>Average</td>
-      <td>Average</td>
+      <td>Good</td><td>0</td>
+      <td>Good</td><td>0</td>
+      <td>Good</td><td>0</td>
+      <td>Good</td><td>0</td>
     </tr>
     <tr>
-      <td>Poor</td>
-      <td>Poor</td>
-      <td>Poor</td>
-      <td>Poor</td>
+      <td>Average</td><td>0</td>
+      <td>Average</td><td>0</td>
+      <td>Average</td><td>0</td>
+      <td>Average</td><td>0</td>
     </tr>
+    <tr>
+      <td>Poor</td><td>0</td>
+      <td>Poor</td><td>0</td>
+      <td>Poor</td><td>0</td>
+      <td>Poor</td><td>0</td>
+    </tr> -->
   </table>
 
   <div class="section-title">What went well / things you most liked about the program (Comments by trainees)</div>
@@ -150,6 +154,329 @@
     <p>[Placeholder comment]</p>
     <p>[Placeholder comment]</p>
   </div>
+
+  <script>
+var reportSummary = {};
+
+// Load report summary from localStorage
+document.addEventListener("DOMContentLoaded", function() {
+    console.log("DOM Content Loaded - attempting to load from localStorage");
+    
+    try {
+        const savedData = localStorage.getItem('reportSummary');
+        console.log("Raw data from localStorage:", savedData);
+        
+        if (savedData) {
+            reportSummary = JSON.parse(savedData);
+            console.log("Successfully loaded report summary:", reportSummary);
+            
+            // Call a function to populate your page with the data
+            populateReportData();
+        } else {
+            console.log("No report summary found in localStorage");
+            reportSummary = {};
+        }
+    } catch (error) {
+        console.error("Error loading report summary from localStorage:", error);
+        reportSummary = {};
+        alert("Error loading report summary from localStorage. The data may be corrupted.");
+    }
+});
+
+// Function to populate your report page with data
+function populateReportData() {
+    if (!reportSummary || Object.keys(reportSummary).length === 0) {
+        console.log("No report data to populate");
+        return;
+    }
+
+    console.log("Populating report data:", reportSummary);
+    
+    // Example of how to use the data (customize based on your HTML structure)
+    try {
+        // Update trainer name
+        const trainerNameElement = document.getElementById('trainerNameDisplay');
+        if (trainerNameElement && reportSummary.trainerName) {
+            trainerNameElement.textContent = reportSummary.trainerName;
+        }
+
+        // Update batch name
+        const batchNameElement = document.getElementById('batchNameDisplay');
+        if (batchNameElement && reportSummary.batchName) {
+            batchNameElement.textContent = reportSummary.batchName;
+        }
+
+        // Update course name
+        const courseNameElement = document.getElementById('courseNameDisplay');
+        if (courseNameElement && reportSummary.courseName) {
+            courseNameElement.textContent = "ILP - " + reportSummary.courseName + " Final Feedback Form";
+        }
+
+        // Update overall rating
+        const overallRatingElement = document.getElementById('overallRatingDisplay');
+        if (overallRatingElement && reportSummary.totalRatingOfTrainer) {
+            overallRatingElement.textContent = reportSummary.totalRatingOfTrainer.toFixed(2);
+        }
+
+        // Update number of responses
+        const responsesElement = document.getElementById('responsesCountDisplay');
+        if (responsesElement && reportSummary.noOfResposes) {
+            responsesElement.textContent = reportSummary.noOfResposes;
+        }
+
+        // Populate question analysis data
+        if (reportSummary.questionAnalysis) {
+            populateQuestionAnalysis(reportSummary.questionAnalysis);
+        }
+
+    } catch (error) {
+        console.error("Error populating report data:", error);
+    }
+}
+
+// // Function to populate question analysis (customize based on your needs)
+// function populateQuestionAnalysis(questionAnalysis) {
+//     console.log("Populating question analysis:", questionAnalysis);
+    
+//     // Example: Create a simple display of question stats
+//     const analysisContainer = document.getElementById('questionAnalysisContainer');
+//     if (analysisContainer) {
+//         let html = '<h3>Question Analysis</h3>';
+        
+//         Object.entries(questionAnalysis).forEach(([question, stats]) => {
+//             html += `
+//                 <div class="question-stat">
+//                     <h4>${question}</h4>
+//                     <ul>
+//                         <li>Excellent: ${stats.Excellent || 0}</li>
+//                         <li>Very Good: ${stats['Very Good'] || 0}</li>
+//                         <li>Good: ${stats.Good || 0}</li>
+//                         <li>Average: ${stats.Average || 0}</li>
+//                         <li>Poor: ${stats.Poor || 0}</li>
+//                     </ul>
+//                 </div>
+//             `;
+//         });
+        
+//         analysisContainer.innerHTML = html;
+//     }
+// }
+
+function populateQuestionAnalysis(questionAnalysis) {
+    console.log("Populating question analysis:", questionAnalysis);
+    
+    const table = document.querySelector('.rating-table');
+    if (!table || !questionAnalysis) {
+        console.error("Table not found or no question analysis data");
+        return;
+    }
+
+    // Clear existing content
+    table.innerHTML = '';
+    
+    // Filter out the question about arrangements/details
+    const filteredQuestions = Object.entries(questionAnalysis).filter(([question, stats]) => 
+        !question.toLowerCase().includes('attention was paid to details like arrangements')
+    );
+    
+    if (filteredQuestions.length === 0) {
+        console.error("No valid questions found after filtering");
+        return;
+    }
+
+    // Create header row with questions
+    const headerRow = document.createElement('tr');
+    
+    // Add question headers (2 columns per question: rating and count)
+    filteredQuestions.forEach(([question, stats]) => {
+        // Create a shortened version of the question for header
+        // const shortQuestion = question.length > 50 ? 
+        //     question.substring(0, 50) + '...' : question;
+        
+        const questionHeader = document.createElement('th');
+        questionHeader.textContent = question;
+        questionHeader.colSpan = 2; // Spans both rating and count columns
+        questionHeader.style.textAlign = 'center';
+        questionHeader.title = question; // Full question as tooltip
+        headerRow.appendChild(questionHeader);
+    });
+    
+    table.appendChild(headerRow);
+
+    // Create subheader row for Rating/Count labels
+    const subHeaderRow = document.createElement('tr');
+    
+    filteredQuestions.forEach(() => {
+        const ratingSubHeader = document.createElement('th');
+        ratingSubHeader.textContent = 'Rating';
+        ratingSubHeader.style.fontSize = '0.9em';
+        ratingSubHeader.style.fontWeight = 'normal';
+        subHeaderRow.appendChild(ratingSubHeader);
+        
+        const countSubHeader = document.createElement('th');
+        countSubHeader.textContent = 'Count';
+        countSubHeader.style.fontSize = '0.9em';
+        countSubHeader.style.fontWeight = 'normal';
+        subHeaderRow.appendChild(countSubHeader);
+    });
+    
+    table.appendChild(subHeaderRow);
+
+    // Define rating categories in order
+    const ratingCategories = ['Excellent', 'Very Good', 'Good', 'Average', 'Poor'];
+    
+    // Create data rows for each rating category
+    ratingCategories.forEach(rating => {
+        const row = document.createElement('tr');
+        
+        // Add data for each question (removed the first rating label column)
+        filteredQuestions.forEach(([question, stats]) => {
+            // Rating cell
+            const ratingDataCell = document.createElement('td');
+            ratingDataCell.textContent = rating;
+            row.appendChild(ratingDataCell);
+            
+            // Count cell
+            const countCell = document.createElement('td');
+            const count = stats[rating] || 0;
+            countCell.textContent = count;
+            countCell.style.textAlign = 'center';
+            countCell.style.fontWeight = 'bold';
+            
+            // Add color coding based on rating
+            switch(rating) {
+                case 'Excellent':
+                    countCell.style.color = '#16a34a'; // Green
+                    break;
+                case 'Very Good':
+                    countCell.style.color = '#22c55e'; // Light green
+                    break;
+                case 'Good':
+                    countCell.style.color = '#eab308'; // Yellow
+                    break;
+                case 'Average':
+                    countCell.style.color = '#f97316'; // Orange
+                    break;
+                case 'Poor':
+                    countCell.style.color = '#dc2626'; // Red
+                    break;
+            }
+            
+            row.appendChild(countCell);
+        });
+        
+        table.appendChild(row);
+    });
+
+    console.log(`Table populated with ${filteredQuestions.length} questions`);
+}  
+
+// Alternative version if you want a more compact table (single column per question)
+function populateQuestionAnalysisCompact(questionAnalysis) {
+    console.log("Populating question analysis (compact):", questionAnalysis);
+    
+    const table = document.querySelector('.rating-table');
+    if (!table || !questionAnalysis) {
+        console.error("Table not found or no question analysis data");
+        return;
+    }
+
+    // Clear existing content
+    table.innerHTML = '';
+    
+    // Filter out the question about arrangements/details
+    const filteredQuestions = Object.entries(questionAnalysis).filter(([question, stats]) => 
+        !question.toLowerCase().includes('attention was paid to details like arrangements')
+    );
+    
+    if (filteredQuestions.length === 0) {
+        console.error("No valid questions found after filtering");
+        return;
+    }
+
+    // Create header row with questions
+    const headerRow = document.createElement('tr');
+    
+    // First cell for rating labels
+    const ratingHeader = document.createElement('th');
+    ratingHeader.textContent = 'Rating';
+    headerRow.appendChild(ratingHeader);
+    
+    // Add question headers
+    filteredQuestions.forEach(([question, stats]) => {
+        const questionHeader = document.createElement('th');
+        // Create a shortened version for display
+        const shortQuestion = question.length > 40 ? 
+            question.substring(0, 40) + '...' : question;
+        questionHeader.textContent = shortQuestion;
+        questionHeader.title = question; // Full question as tooltip
+        questionHeader.style.textAlign = 'center';
+        headerRow.appendChild(questionHeader);
+    });
+    
+    table.appendChild(headerRow);
+
+    // Define rating categories in order
+    const ratingCategories = ['Excellent', 'Very Good', 'Good', 'Average', 'Poor'];
+    
+    // Create data rows
+    ratingCategories.forEach(rating => {
+        const row = document.createElement('tr');
+        
+        // First cell: Rating label
+        const ratingCell = document.createElement('td');
+        ratingCell.textContent = rating;
+        ratingCell.style.fontWeight = 'bold';
+        row.appendChild(ratingCell);
+        
+        // Add count for each question
+        filteredQuestions.forEach(([question, stats]) => {
+            const countCell = document.createElement('td');
+            const count = stats[rating] || 0;
+            countCell.textContent = count;
+            countCell.style.textAlign = 'center';
+            countCell.style.fontWeight = 'bold';
+            
+            // Add color coding
+            switch(rating) {
+                case 'Excellent':
+                    countCell.style.color = '#16a34a';
+                    break;
+                case 'Very Good':
+                    countCell.style.color = '#22c55e';
+                    break;
+                case 'Good':
+                    countCell.style.color = '#eab308';
+                    break;
+                case 'Average':
+                    countCell.style.color = '#f97316';
+                    break;
+                case 'Poor':
+                    countCell.style.color = '#dc2626';
+                    break;
+            }
+            
+            row.appendChild(countCell);
+        });
+        
+        table.appendChild(row);
+    });
+
+    console.log(`Compact table populated with ${filteredQuestions.length} questions`);
+}
+
+// Utility function to clear localStorage (useful for debugging)
+function clearReportSummary() {
+    localStorage.removeItem('reportSummary');
+    console.log("Report summary cleared from localStorage");
+}
+
+// Utility function to check what's in localStorage
+function debugLocalStorage() {
+    console.log("All localStorage keys:", Object.keys(localStorage));
+    console.log("reportSummary in localStorage:", localStorage.getItem('reportSummary'));
+}
+  </script>
 
 </body>
 </html>
