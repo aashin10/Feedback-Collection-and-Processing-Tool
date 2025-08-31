@@ -349,6 +349,7 @@ function analyzeExcelData(file) {
 
     // String to hold all feedbacks
     let whatWentWrongCombined = "";
+    let whatWentWellCombined = "";
 
     try {
         jsonData.forEach((entry, index) => {
@@ -380,18 +381,27 @@ function analyzeExcelData(file) {
 
             // Collect feedback on what went wrong - improved logic
             let whatWentWrong = null;
+            let whatWentWell = null;
 
             // First, try to find the exact column name by looking for key that contains "improvement" or "less liked"
             const feedbackKey = Object.keys(entry).find(key => 
                 key.toLowerCase().includes('improvement') || 
                 key.toLowerCase().includes('less liked') ||
-                key.toLowerCase().includes('what needs') ||
-                key.toLowerCase().includes('feedback') ||
-                key.toLowerCase().includes('comments')
+                key.toLowerCase().includes('what needs improvement')
+            );
+
+            const feedWellKey = Object.keys(entry).find(key => 
+                key.toLowerCase().includes('well') || 
+                key.toLowerCase().includes('liked') ||
+                key.toLowerCase().includes('What went well')
             );
 
             if (feedbackKey) {
                 whatWentWrong = entry[feedbackKey];
+            }
+
+            if (feedWellKey) {
+                whatWentWell = entry[feedWellKey];
             }
 
             // If we found feedback and it's a valid string, add it to our combined string
@@ -408,8 +418,25 @@ function analyzeExcelData(file) {
                 }
             }
 
+                        // If we found feedback and it's a valid string, add it to our combined string
+            if (whatWentWell && typeof whatWentWell === 'string' && whatWentWell.trim()) {
+                // Clean up the feedback text and add it
+                const cleanedFeedback = whatWentWell.trim();
+                whatWentWellCombined += cleanedFeedback;
+                
+                // Add period and space if the feedback doesn't already end with punctuation
+                if (!cleanedFeedback.match(/[.!?]$/)) {
+                    whatWentWellCombined += ". ";
+                } else {
+                    whatWentWellCombined += " ";
+                }
+            }
+
             console.log(`Entry ${index} feedback:`, whatWentWrong);
             console.log(`Current combined length:`, whatWentWrongCombined.length);
+
+            console.log(`Entry ${index} feedback:`, whatWentWell);
+            console.log(`Current combined length:`, whatWentWellCombined.length);
         });
     } catch (error) {
         console.error("Error during forEach processing:", error);
@@ -419,6 +446,10 @@ function analyzeExcelData(file) {
     // Clean up the combined feedback string
     whatWentWrongCombined = whatWentWrongCombined.trim();
     console.log("Combined feedback length:", whatWentWrongCombined.length);
+
+        // Clean up the combined feedwell string
+    whatWentWellCombined = whatWentWellCombined.trim();
+    console.log("Combined What Went Well length:", whatWentWellCombined.length);
 
     // Calculate overall avg rating (avoid division by zero)
     const averageRating = totalResponses > 0 ? totalRating / totalResponses : 0;
@@ -473,12 +504,54 @@ function analyzeExcelData(file) {
     console.log("courseName:", courseName);
     console.log("Batch Info:", batchInfo);
     console.log("whatWentWrongCombined:", whatWentWrongCombined);
+    console.log("whatWentWellCombined:", whatWentWellCombined);
 
 
 
     //ask gemini to summarize
-    let gemimiResponse = summarizeGemini("here is a paragraph containing combined feedback about 'what went wrong' from all the users who attended a training section from a trainer. summarize this into 4 key points where the trainer can i improve and what can be changed in the training. keep it short by only writing these 4 summary points and nothing else: '" + whatWentWrongCombined + "'");
-    console.log("Gemini Response:", gemimiResponse);
+    let geminiResponse;
+    let cleaned;
+    async function main() {
+        geminiResponse = await summarizeGemini("here are 2 paragraphs containing combined feedback about 'what went wrong' and 'What went well' from all the users who attended a training section from a trainer. summarize this into 4 key points for each 1.where the trainer can i improve and what can be changed in the training and 2.where the trainer excels and what good feedback trainees have to say. write the headings for each as: 'what went wrong' and 'what went well'. keep it short and consise by only giving the headings and the 4 points for each, nothing else. paragraphs are - 'what went wrong para': '" + whatWentWrongCombined + "'. what went well para' :'" + whatWentWellCombined + "'");
+        
+  if (!geminiResponse) {
+    console.error("Gemini response was empty");
+    return;
+  }
+
+  let cleaned = geminiResponse
+    // remove markdown headers like ### Heading
+    .replace(/###\s?.*/g, "")
+    // remove bullet markers (*, -, •) with or without space
+    .replace(/^\s*[\*\-•]\s*/gm, "")
+    // also catch cases like "*what went wrong" (no space after the *)
+    .replace(/^\s*\*/gm, "")
+    // remove extra blank lines
+    .replace(/\n\s*\n/g, "\n")
+    // remove bold markers (**)
+    .replace(/\*\*/g, "")
+    .trim();
+
+  console.log("Full Cleaned Response:\n", cleaned);
+
+  // Split into lines
+  const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
+
+  // First block: lines 1–4 (skip heading)
+  const whatWentWrongFinal = lines.slice(1, 5).join("\n");
+
+  // Second block: lines 6–9 (skip heading)
+  const whatWentWellFinal = lines.slice(6, 10).join("\n");
+
+  console.log("\n=== What Went Wrong ===\n", whatWentWrongFinal);
+  console.log("\n=== What Went Well ===\n", whatWentWellFinal);
+
+}
+    main();
+
+    
+
+console.log(cleaned);
 
 
 
@@ -492,7 +565,9 @@ function analyzeExcelData(file) {
         courseName: courseName || "",
         timestamp: new Date().toISOString(),
         globalCounts: globalCounts,
-        whatWentWrongCombined: whatWentWrongCombined || "" // Added the combined feedback
+        whatWentWrongCombined: whatWentWrongFinal || "", // Added the combined feedback
+        whatWentWellCombined: whatWentWellFinal || ""
+        
     };
 
     console.log("Final Report Summary before saving:", reportSummaryData);
@@ -593,6 +668,7 @@ document.getElementById('fileInput').addEventListener('change', (event) => {
 //Gemini SetUp
 
 async function summarizeGemini(prompt) {
+    console.log(prompt);
   const API_KEY = "myKey"; // 🔑 Replace with your actual key
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" + API_KEY;
 
@@ -601,6 +677,7 @@ async function summarizeGemini(prompt) {
       { parts: [{ text: prompt }] }
     ]
   };
+
 
   try {
     const response = await fetch(url, {
@@ -615,12 +692,13 @@ async function summarizeGemini(prompt) {
     console.log("Gemini response:", data);
 
     // Extract actual text
-    const aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     console.log("AI says:", aiText);
+    return aiText;
   } catch (err) {
     console.error("Error calling Gemini API:", err);
+    return "";
   }
-  return aiText;
 }
 
 // Run it on page load
