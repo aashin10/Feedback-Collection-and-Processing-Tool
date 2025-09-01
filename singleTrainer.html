@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Excel Report Generator</title>
     <link rel="stylesheet" href="styles/singleTrainerStyles.css" />
+    <!-- Add this to your HTML head -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 
 <body>
@@ -107,6 +109,7 @@ var batchName;
 var fileName;
 let reportSummary = null;
 let noOfResponses;
+let reportFrame;
 // var whatWentWrong = {};
 // var improvemts = {};
 
@@ -507,53 +510,50 @@ function analyzeExcelData(file) {
     console.log("whatWentWellCombined:", whatWentWellCombined);
 
 
+//ask gemini to summarize
+let geminiResponse;
+let cleaned;
+let whatWentWrongFinal;
+let whatWentWellFinal;
 
-    //ask gemini to summarize
-    let geminiResponse;
-    let cleaned;
-    async function main() {
-        geminiResponse = await summarizeGemini("here are 2 paragraphs containing combined feedback about 'what went wrong' and 'What went well' from all the users who attended a training section from a trainer. summarize this into 4 key points for each 1.where the trainer can i improve and what can be changed in the training and 2.where the trainer excels and what good feedback trainees have to say. write the headings for each as: 'what went wrong' and 'what went well'. keep it short and consise by only giving the headings and the 4 points for each, nothing else. paragraphs are - 'what went wrong para': '" + whatWentWrongCombined + "'. what went well para' :'" + whatWentWellCombined + "'");
-        
-  if (!geminiResponse) {
-    console.error("Gemini response was empty");
-    return;
-  }
-
-  let cleaned = geminiResponse
-    // remove markdown headers like ### Heading
-    .replace(/###\s?.*/g, "")
-    // remove bullet markers (*, -, •) with or without space
-    .replace(/^\s*[\*\-•]\s*/gm, "")
-    // also catch cases like "*what went wrong" (no space after the *)
-    .replace(/^\s*\*/gm, "")
-    // remove extra blank lines
-    .replace(/\n\s*\n/g, "\n")
-    // remove bold markers (**)
-    .replace(/\*\*/g, "")
-    .trim();
-
-  console.log("Full Cleaned Response:\n", cleaned);
-
-  // Split into lines
-  const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
-
-  // First block: lines 1–4 (skip heading)
-  const whatWentWrongFinal = lines.slice(1, 5).join("\n");
-
-  // Second block: lines 6–9 (skip heading)
-  const whatWentWellFinal = lines.slice(6, 10).join("\n");
-
-  console.log("\n=== What Went Wrong ===\n", whatWentWrongFinal);
-  console.log("\n=== What Went Well ===\n", whatWentWellFinal);
-
-}
-    main();
-
+async function main() {
+    geminiResponse = await summarizeGemini("here are 2 paragraphs containing combined feedback about 'what went wrong' and 'What went well' from all the users who attended a training section from a trainer. summarize this into 4 key points for each 1.where the trainer can i improve and what can be changed in the training and 2.where the trainer excels and what good feedback trainees have to say. write the headings for each as: 'what went wrong' and 'what went well'. keep it short and consise by only giving the headings and the 4 points for each, nothing else. paragraphs are - 'what went wrong para': '" + whatWentWrongCombined + "'. what went well para' :'" + whatWentWellCombined + "'");
     
+    if (!geminiResponse) {
+        console.error("Gemini response was empty");
+        return;
+    }
 
-console.log(cleaned);
+    cleaned = geminiResponse
+        // remove markdown headers like ### Heading
+        .replace(/###\s?.*/g, "")
+        // remove bullet markers (*, -, •) with or without space
+        .replace(/^\s*[\*\-•]\s*/gm, "")
+        // also catch cases like "*what went wrong" (no space after the *)
+        .replace(/^\s*\*/gm, "")
+        // remove extra blank lines
+        .replace(/\n\s*\n/g, "\n")
+        // remove bold markers (**)
+        .replace(/\*\*/g, "")
+        .trim();
 
+    console.log("Full Cleaned Response:\n", cleaned);
 
+    // Split into lines
+    const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
+
+    // First block: lines 1–4 (skip heading)
+    whatWentWrongFinal = lines.slice(1, 5).join("\n");
+
+    // Second block: lines 6–9 (skip heading)
+    whatWentWellFinal = lines.slice(6, 10).join("\n");
+
+    console.log("\n=== What Went Wrong ===\n", whatWentWrongFinal);
+    console.log("\n=== What Went Well ===\n", whatWentWellFinal);
+}
+
+async function processAfterMain() {
+    console.log(cleaned);
 
     // Create the report summary - ensure all values are serializable
     const reportSummaryData = {
@@ -567,7 +567,6 @@ console.log(cleaned);
         globalCounts: globalCounts,
         whatWentWrongCombined: whatWentWrongFinal || "", // Added the combined feedback
         whatWentWellCombined: whatWentWellFinal || ""
-        
     };
 
     console.log("Final Report Summary before saving:", reportSummaryData);
@@ -579,6 +578,16 @@ console.log(cleaned);
     reportSummary = reportSummaryData;
 
     return reportSummaryData;
+}
+
+// Execute main first, then process after main completes
+async function executeSequentially() {
+    await main();
+    return await processAfterMain();
+}
+
+// Call the sequential execution
+executeSequentially();
 }
 
 
@@ -627,7 +636,7 @@ function showReportPreview() {
     const reportPreview = document.getElementById('reportPreview');
     const reportDate = document.getElementById('reportDate');
     const reportPlaceholder = document.getElementById('reportPlaceholder');
-    const reportFrame = document.getElementById('reportFrame');
+    reportFrame = document.getElementById('reportFrame');
 
     // Set report date
     reportDate.textContent = `Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`;
@@ -645,17 +654,17 @@ function showReportPreview() {
     reportPreview.classList.add('show');
 }
 
-// Download functionality
-function downloadReport() {
-    if (!reportData) {
-        showMessage('No report data available to download!', 'error');
-        return;
-    }
+// // Download functionality
+// function downloadReport() {
+//     if (!reportData) {
+//         showMessage('No report data available to download!', 'error');
+//         return;
+//     }
 
-    // TODO: Add your download logic here
-    showMessage('Download functionality will be implemented here!', 'success');
-    console.log('Download report:', reportData);
-}
+//     // TODO: Add your download logic here
+//     showMessage('Download functionality will be implemented here!', 'success');
+//     console.log('Download report:', reportData);
+// }
 
 // Set up the file input event listener
 document.getElementById('fileInput').addEventListener('change', (event) => {
@@ -669,7 +678,7 @@ document.getElementById('fileInput').addEventListener('change', (event) => {
 
 async function summarizeGemini(prompt) {
     console.log(prompt);
-  const API_KEY = "myKey"; // 🔑 Replace with your actual key
+  const API_KEY = "AIzaSyCdXfS6CzvUzoq1Jo_x5HMdvtp_ykImrQM "; // 🔑 Replace with your actual key
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" + API_KEY;
 
   const requestBody = {
@@ -705,7 +714,270 @@ async function summarizeGemini(prompt) {
 
 
 
+
+
+
+// Alternative method: Download entire page as PDF (not from iframe)
+async function downloadFullPageAsPDF() {
+    try {
+        showMessage('Generating PDF... Please wait.', 'info');
+        
+        // Fetch the external HTML file
+        const response = await fetch("feedBackReport.html"); // adjust path if needed
+        const htmlContent = await response.text();
+
+        // Create a hidden container and insert the HTML content
+        const hiddenContainer = document.createElement('div');
+        hiddenContainer.style.position = 'absolute';
+        hiddenContainer.style.left = '-9999px';
+        hiddenContainer.innerHTML = htmlContent;
+        document.body.appendChild(hiddenContainer);
+
+        const options = {
+            margin: 1,
+            filename: `Full_Report_${new Date().toISOString().split('T')[0]}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+        };
+
+        // Use hidden container as source
+        await html2pdf().from(hiddenContainer).set(options).save();
+
+        // Clean up
+        document.body.removeChild(hiddenContainer);
+
+        showMessage('PDF downloaded successfully!', 'success');
+        
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        showMessage('Error generating PDF. Please try again.', 'error');
+    }
+}
+
+
+
+// Approach 2: Using jsPDF with html2canvas (Alternative)
+// Add these script tags:
+
+async function downloadReportWithJsPDF() {
+    try {
+        // Get the report summary from localStorage
+        const savedData = localStorage.getItem('reportSummary');
+        if (!savedData) {
+            alert('No report data found. Please generate a report first.');
+            return;
+        }
+        
+        const reportSummary = JSON.parse(savedData);
+        console.log("Report summary loaded:", reportSummary);
+        
+        // Fetch the HTML content
+        const response = await fetch('feedBackReport.html');
+        const htmlContent = await response.text();
+        
+        // Create a temporary container
+        const tempContainer = document.createElement('div');
+        tempContainer.innerHTML = htmlContent;
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '-9999px';
+        tempContainer.style.width = '210mm'; // A4 width
+        tempContainer.style.backgroundColor = '#ffffff';
+        document.body.appendChild(tempContainer);
+        
+        // Wait a bit for the DOM to be ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Now populate the data in the temporary container
+        await populateReportInContainer(tempContainer, reportSummary);
+        
+        // Wait a bit more to ensure all content is rendered
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Use html2canvas to capture the content
+        const canvas = await html2canvas(tempContainer, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            width: tempContainer.scrollWidth,
+            height: tempContainer.scrollHeight,
+            onclone: function(clonedDoc) {
+                // Ensure the cloned document also has the populated data
+                console.log("Cloning document for canvas");
+            }
+        });
+        
+        // Create PDF with jsPDF
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        const imgData = canvas.toDataURL('image/png');
+        const imgWidth = 210; // A4 width in mm
+        const pageHeight = 295; // A4 height in mm
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        let heightLeft = imgHeight;
+        let position = 0;
+        
+        // Add first page
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+        
+        // Add additional pages if needed
+        while (heightLeft >= 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+        }
+        
+        // Download the PDF
+        pdf.save('feedbackReport.pdf');
+        
+        // Clean up
+        document.body.removeChild(tempContainer);
+        
+        console.log("PDF generated successfully");
+        
+    } catch (error) {
+        console.error('Error downloading report:', error);
+        alert('Failed to download report. Please try again. Error: ' + error.message);
+    }
+}
+
+
+
+async function downloadReport() {
+    try {
+        // Fetch the content of feedBackReport.html
+        const response = await fetch('feedBackReport.html');
+        const htmlContent = await response.text();
+        
+        // Create a temporary container
+        const tempContainer = document.createElement('div');
+        tempContainer.innerHTML = htmlContent;
+        tempContainer.style.position = 'absolute';
+        tempContainer.style.left = '-9999px';
+        tempContainer.style.top = '-9999px';
+        document.body.appendChild(tempContainer);
+        
+        // Configure PDF options
+        const opt = {
+            margin: 1,
+            filename: 'feedbackReport.pdf',
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { 
+                scale: 2,
+                useCORS: true,
+                allowTaint: true,
+                backgroundColor: '#ffffff'
+            },
+            jsPDF: { 
+                unit: 'in', 
+                format: 'letter', 
+                orientation: 'portrait' 
+            }
+        };
+        
+        // Generate and download PDF
+        await html2pdf().set(opt).from(tempContainer).save();
+        
+        // Clean up
+        document.body.removeChild(tempContainer);
+        
+    } catch (error) {
+        console.error('Error downloading report:', error);
+        alert('Failed to download report. Please try again.');
+    }
+}
+
+// Alternative approach: Open feedBackReport.html in new window and generate PDF from there
+async function downloadReportFromWindow() {
+    try {
+        // Check if report data exists
+        const savedData = localStorage.getItem('reportSummary');
+        if (!savedData) {
+            alert('No report data found. Please generate a report first.');
+            return;
+        }
+        
+        // Open the report in a new window
+        const reportWindow = window.open('feedBackReport.html', '_blank', 'width=1200,height=800');
+        
+        if (!reportWindow) {
+            alert('Please allow popups for this site to download the report.');
+            return;
+        }
+        
+        // Wait for the window to load and then generate PDF
+        reportWindow.addEventListener('load', async function() {
+            try {
+                // Wait a bit more for dynamic content to load
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Use html2canvas on the new window's document
+                const canvas = await html2canvas(reportWindow.document.body, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff'
+                });
+                
+                // Create PDF
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = 210;
+                const pageHeight = 295;
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+                
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+                
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+                
+                pdf.save('feedbackReport.pdf');
+                
+                // Close the popup window
+                reportWindow.close();
+                
+            } catch (error) {
+                console.error('Error generating PDF from window:', error);
+                alert('Failed to generate PDF. Error: ' + error.message);
+                reportWindow.close();
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error opening report window:', error);
+        alert('Failed to open report window. Error: ' + error.message);
+    }
+}
+
+// Main function to call - tries the container approach first, falls back to window approach
+async function downloadReport() {
+    try {
+        await downloadReportWithJsPDF();
+    } catch (error) {
+        console.log('Container approach failed, trying window approach...');
+        await downloadReportFromWindow();
+    }
+}
+
     </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
 </body>
 
 </html>

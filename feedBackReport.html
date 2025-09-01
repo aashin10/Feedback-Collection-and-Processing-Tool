@@ -144,15 +144,15 @@
   </table>
 
   <div class="section-title">What went well / things you most liked about the program (Comments by trainees)</div>
-  <div class="comments">
-    <p>[Placeholder comment]</p>
-    <p>[Placeholder comment]</p>
+  <div class="comments" id="whatWentWell-section">
+    <!-- <p>[Placeholder comment]</p>
+    <p>[Placeholder comment]</p> -->
   </div>
 
   <div class="section-title">What needs improvement / things you less liked about the program (Comments by trainees)</div>
-  <div class="comments">
-    <p>[Placeholder comment]</p>
-    <p>[Placeholder comment]</p>
+  <div class="comments" id="whatWentWrong-section">
+    <!-- <p>[Placeholder comment]</p>
+    <p>[Placeholder comment]</p> -->
   </div>
 
   <script>
@@ -172,6 +172,9 @@ document.addEventListener("DOMContentLoaded", function() {
             
             // Call a function to populate your page with the data
             populateReportData();
+            debugCommentsData();        // To see what data is available
+populateCommentsSection();  // To manually trigger the population
+
         } else {
             console.log("No report summary found in localStorage");
             reportSummary = {};
@@ -228,6 +231,9 @@ function populateReportData() {
         if (reportSummary.questionAnalysis) {
             populateQuestionAnalysis(reportSummary.questionAnalysis);
         }
+
+        // ADD THIS: Populate comments sections
+        populateCommentsSection();
 
     } catch (error) {
         console.error("Error populating report data:", error);
@@ -464,6 +470,151 @@ function populateQuestionAnalysisCompact(questionAnalysis) {
 
     console.log(`Compact table populated with ${filteredQuestions.length} questions`);
 }
+
+
+// Function to populate the comments sections with data from localStorage
+function populateCommentsSection() {
+    console.log("Attempting to populate comments sections");
+    
+    // Extract the data from reportSummary (loaded from localStorage)
+    let whatWentWellData = null;
+    let whatWentWrongData = null;
+    
+    if (reportSummary && Object.keys(reportSummary).length > 0) {
+        whatWentWellData = reportSummary.whatWentWellCombined;
+        whatWentWrongData = reportSummary.whatWentWrongCombined;
+        
+        console.log("Extracted from localStorage:");
+        console.log("What went well data:", whatWentWellData);
+        console.log("What went wrong data:", whatWentWrongData);
+    } else {
+        console.log("No report data available for comments");
+        // Show placeholder text if no data
+        populateSectionWithComments(document.getElementById('whatWentWell-section'), null);
+        populateSectionWithComments(document.getElementById('whatWentWrong-section'), null);
+        return;
+    }
+
+    // Populate "What went well" section
+    const whatWentWellSection = document.getElementById('whatWentWell-section');
+    if (whatWentWellSection) {
+        populateSectionWithComments(whatWentWellSection, whatWentWellData);
+        console.log("Populated 'What went well' section");
+    } else {
+        console.error("Element with id 'whatWentWell-section' not found");
+    }
+
+    // Populate "What went wrong" section  
+    const whatWentWrongSection = document.getElementById('whatWentWrong-section');
+    if (whatWentWrongSection) {
+        populateSectionWithComments(whatWentWrongSection, whatWentWrongData);
+        console.log("Populated 'What went wrong' section");
+    } else {
+        console.error("Element with id 'whatWentWrong-section' not found");
+    }
+}
+
+// Helper function to parse and format comments into a section
+function populateSectionWithComments(sectionElement, commentsData) {
+    if (!sectionElement) {
+        console.error("Section element not provided");
+        return;
+    }
+
+    // Clear existing content
+    sectionElement.innerHTML = '';
+
+    // Handle empty or null data
+    if (!commentsData || commentsData.trim() === '') {
+        const noCommentsP = document.createElement('p');
+        noCommentsP.textContent = 'No comments available';
+        noCommentsP.style.fontStyle = 'italic';
+        noCommentsP.style.color = '#666';
+        sectionElement.appendChild(noCommentsP);
+        return;
+    }
+
+    console.log("Processing comments data:", commentsData);
+
+    // Split the comments by newline characters (\n) and filter out empty lines
+    const comments = commentsData
+        .split('\n')
+        .map(comment => comment.trim())
+        .filter(comment => comment !== '' && comment.length > 0);
+
+    console.log("Parsed comments:", comments);
+
+    if (comments.length === 0) {
+        const noCommentsP = document.createElement('p');
+        noCommentsP.textContent = 'No comments available';
+        noCommentsP.style.fontStyle = 'italic';
+        noCommentsP.style.color = '#666';
+        sectionElement.appendChild(noCommentsP);
+        return;
+    }
+
+    // Create paragraph elements for each comment
+    comments.forEach((comment, index) => {
+        const commentParagraph = document.createElement('p');
+        commentParagraph.textContent = comment;
+        
+        // Add some styling to make comments look better
+        commentParagraph.style.marginBottom = '10px';
+        commentParagraph.style.lineHeight = '1.4';
+        commentParagraph.style.fontSize = '18px';
+        
+        // Optional: Add bullet point styling
+        commentParagraph.style.position = 'relative';
+        commentParagraph.style.paddingLeft = '20px';
+        
+        // Add bullet point using CSS pseudo-element alternative
+        const bulletSpan = document.createElement('span');
+        bulletSpan.textContent = '• ';
+        bulletSpan.style.position = 'absolute';
+        bulletSpan.style.left = '0';
+        bulletSpan.style.fontWeight = 'bold';
+        bulletSpan.style.color = '#8d5ca6';
+        
+        commentParagraph.insertBefore(bulletSpan, commentParagraph.firstChild);
+        
+        sectionElement.appendChild(commentParagraph);
+    });
+
+    console.log(`Successfully populated section with ${comments.length} comments`);
+}
+
+
+
+// Debug function to check localStorage data
+function debugCommentsData() {
+    console.log("=== DEBUG: Comments Data ===");
+    console.log("Full reportSummary:", reportSummary);
+    
+    if (reportSummary) {
+        console.log("whatWentWellCombined:", reportSummary.whatWentWellCombined);
+        console.log("whatWentWrongCombined:", reportSummary.whatWentWrongCombined);
+        
+        // Show raw data with escaped characters visible
+        console.log("whatWentWellCombined (raw):", JSON.stringify(reportSummary.whatWentWellCombined));
+        console.log("whatWentWrongCombined (raw):", JSON.stringify(reportSummary.whatWentWrongCombined));
+        
+        // Test splitting
+        if (reportSummary.whatWentWellCombined) {
+            const testSplit = reportSummary.whatWentWellCombined.split('\n');
+            console.log("whatWentWellCombined split test:", testSplit);
+        }
+        
+        if (reportSummary.whatWentWrongCombined) {
+            const testSplit = reportSummary.whatWentWrongCombined.split('\n');
+            console.log("whatWentWrongCombined split test:", testSplit);
+        }
+    } else {
+        console.log("No reportSummary data available");
+    }
+    console.log("=== END DEBUG ===");
+}
+
+
 
 // Utility function to clear localStorage (useful for debugging)
 function clearReportSummary() {

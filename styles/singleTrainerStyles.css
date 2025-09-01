@@ -371,3 +371,24 @@
         .message.show {
             display: block;
         }
+
+
+        /* Add to your CSS */
+@media print {
+    body { 
+        margin: 0; 
+        padding: 20px; 
+    }
+    .page-break-before { 
+        page-break-before: always; 
+    }
+    .page-break-after { 
+        page-break-after: always; 
+    }
+}
+
+/* Ensure good print quality */
+* {
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+}
