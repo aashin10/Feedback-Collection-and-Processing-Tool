@@ -1495,39 +1495,57 @@ async function analyzeMultipleExcelData(file) {
                 }
             });
         });
+        // Get file name
+            const currentFileName = file ? file.name : "";
 
-        // ---- Compute stats + build final results ----
-        const finalResults = {};
+        //Find Batch Name from file name
+const batchMatch = currentFileName.match(/(ILP).*?(\d{4}-\d{2}) Batch/i);
+const batchInfo = batchMatch ? `${batchMatch[1]} ${batchMatch[2]} Batch` : "Not found";
 
-        for (const trainerName of trainers) {
-            const t = trainerResults[trainerName];
+console.log(batchInfo);
 
-            if (t.totalRatings > 0) {
-                t.averageRating = t.totalRatingSum / t.totalRatings;
-            }
+// Extract course name
+const courseMatch = currentFileName.match(/ILP\s*-\s*(.*?)\s*_/);
+const courseName = courseMatch ? courseMatch[1].trim() : "Not found";
 
-            // per-question averages - using question text as keys
-            Object.keys(t.questionStats).forEach(questionText => {
-                const q = t.questionStats[questionText];
-                let acc = 0;
-                Object.keys(q.responses).forEach(label => {
-                    acc += q.responses[label] * ratingValues[label];
-                });
-                q.averageRating = q.totalResponses > 0 ? acc / q.totalResponses : 0;
-            });
+console.log(courseName);
 
-            const whatWentWellCombined = concatFeedback(t.whatWentWellTexts);
-            const whatNeedsImprovementCombined = concatFeedback(t.whatNeedsImprovementTexts);
 
-            finalResults[trainerName] = {
-                trainerName,
-                questionAnalysis: t.questionStats, // Now contains question text as keys
-                totalRatingOfTrainer: parseFloat(t.averageRating.toFixed(2)),
-                noOfResponses: t.responseCount,
-                whatWentWellCombined,
-                whatWentWrongCombined : whatNeedsImprovementCombined,
-                timestamp: new Date().toISOString()
-            };
+
+// ---- Compute stats + build final results ----
+const finalResults = {};
+
+for (const trainerName of trainers) {
+    const t = trainerResults[trainerName];
+
+    if (t.totalRatings > 0) {
+        t.averageRating = t.totalRatingSum / t.totalRatings;
+    }
+
+    // Rebuild question stats in flattened structure
+    const questionAnalysis = {};
+    Object.keys(t.questionStats).forEach(questionText => {
+        const q = t.questionStats[questionText];
+        // Just copy response counts directly (remove averageRating + totalResponses)
+        questionAnalysis[questionText] = { ...q.responses };
+    });
+
+    const whatWentWellCombined = concatFeedback(t.whatWentWellTexts);
+    const whatNeedsImprovementCombined = concatFeedback(t.whatNeedsImprovementTexts);
+
+    finalResults[trainerName] = {
+        trainerName,
+        questionAnalysis, // flattened structure
+        totalRatingOfTrainer: parseFloat(t.averageRating.toFixed(2)),
+        noOfResponses: t.responseCount,
+        whatWentWellCombined,
+        whatWentWrongCombined: whatNeedsImprovementCombined,
+        timestamp: new Date().toISOString(),
+        batchName: batchInfo,
+        courseName: courseName
+    };
+
+
 
             console.log(`[${trainerName}] WW Well len: ${whatWentWellCombined.length} | Needs Improvement len: ${whatNeedsImprovementCombined.length}`);
         }
@@ -1539,8 +1557,8 @@ async function analyzeMultipleExcelData(file) {
             for (const trainerName of trainers) {
                 const tr = finalResults[trainerName];
 
-                // Skip empty inputs safely
-                if (!(tr.whatWentWellCombined || tr.whatNeedsImprovementCombined)) {
+                // FIXED: Use correct property names - tr.whatWentWrongCombined instead of tr.whatNeedsImprovementCombined
+                if (!(tr.whatWentWellCombined || tr.whatWentWrongCombined)) {
                     geminiResults[trainerName] = { whatNeedsImprovementFinal: "", whatWentWellFinal: "" };
                     continue;
                 }
@@ -1554,7 +1572,7 @@ Write the headings exactly as: "What Needs Improvement" and "What Went Well".
 Keep it concise: only the two headings and 4 bullet points under each, nothing else.
 
 Paragraphs:
-'What needs improvement': '${tr.whatNeedsImprovementCombined}'
+'What needs improvement': '${tr.whatWentWrongCombined}'
 'What went well': '${tr.whatWentWellCombined}'`;
 
                     const raw = await summarizeGemini(prompt);
@@ -1595,9 +1613,22 @@ Paragraphs:
                 completeResults[trainerName] = {
                     ...finalResults[trainerName],
                     // Map improvement → whatWentWrongFinal as per your naming
-                    whatWentWrongFinal: geminiResults[trainerName]?.whatNeedsImprovementFinal || "",
-                    whatWentWellFinal: geminiResults[trainerName]?.whatWentWellFinal || ""
+                    whatWentWrongCombined: geminiResults[trainerName]?.whatNeedsImprovementFinal || "",
+                    whatWentWellCombined: geminiResults[trainerName]?.whatWentWellFinal || ""
                 };
+                
+                //             const reportSummaryData = {
+                //     questionAnalysis: questionStats,
+                //     totalRatingOfTrainer: parseFloat(averageRating.toFixed(2)),
+                //     noOfResponses: totalResponses, // Fixed: was "noOfResposes"
+                //     trainerName: currentTrainerName || "",
+                //     batchName: batchInfo || "",
+                //     courseName: courseName || "",
+                //     timestamp: new Date().toISOString(),
+                //     globalCounts: globalCounts,
+                //     whatWentWrongCombined: whatWentWrongFinal || "", // Added the combined feedback
+                //     whatWentWellCombined: whatWentWellFinal || ""
+                // };
             }
 
             // Save only the selected trainer result if available
@@ -1634,7 +1665,6 @@ Paragraphs:
         throw new Error("Error processing Excel data: " + error.message);
     }
 }
-
 
 
 
