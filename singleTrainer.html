@@ -678,7 +678,7 @@ document.getElementById('fileInput').addEventListener('change', (event) => {
 
 async function summarizeGemini(prompt) {
     console.log(prompt);
-  const API_KEY = "myKey "; // 🔑 Replace with your actual key
+  const API_KEY = "AIzaSyCdXfS6CzvUzoq1Jo_x5HMdvtp_ykImrQM "; // 🔑 Replace with your actual key
   const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" + API_KEY;
 
   const requestBody = {
@@ -848,49 +848,6 @@ async function downloadReportWithJsPDF() {
 
 
 
-async function downloadReport() {
-    try {
-        // Fetch the content of feedBackReport.html
-        const response = await fetch('feedBackReport.html');
-        const htmlContent = await response.text();
-        
-        // Create a temporary container
-        const tempContainer = document.createElement('div');
-        tempContainer.innerHTML = htmlContent;
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.left = '-9999px';
-        tempContainer.style.top = '-9999px';
-        document.body.appendChild(tempContainer);
-        
-        // Configure PDF options
-        const opt = {
-            margin: 1,
-            filename: 'feedbackReport.pdf',
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { 
-                scale: 2,
-                useCORS: true,
-                allowTaint: true,
-                backgroundColor: '#ffffff'
-            },
-            jsPDF: { 
-                unit: 'in', 
-                format: 'letter', 
-                orientation: 'portrait' 
-            }
-        };
-        
-        // Generate and download PDF
-        await html2pdf().set(opt).from(tempContainer).save();
-        
-        // Clean up
-        document.body.removeChild(tempContainer);
-        
-    } catch (error) {
-        console.error('Error downloading report:', error);
-        alert('Failed to download report. Please try again.');
-    }
-}
 
 // Alternative approach: Open feedBackReport.html in new window and generate PDF from there
 async function downloadReportFromWindow() {
@@ -971,6 +928,256 @@ async function downloadReport() {
         console.log('Container approach failed, trying window approach...');
         await downloadReportFromWindow();
     }
+}
+
+
+
+
+
+
+// Function to populate data in the temporary container
+async function populateReportInContainer(container, reportSummary) {
+    console.log("Populating report data in container:", reportSummary);
+    
+    try {
+        // Update trainer name
+        const trainerNameElement = container.querySelector('#trainerNameDisplay');
+        if (trainerNameElement && reportSummary.trainerName) {
+            trainerNameElement.textContent = reportSummary.trainerName;
+        }
+
+        // Update batch name
+        const batchNameElement = container.querySelector('#batchNameDisplay');
+        if (batchNameElement && reportSummary.batchName) {
+            batchNameElement.textContent = reportSummary.batchName;
+        }
+
+        // Update course name
+        const courseNameElement = container.querySelector('#courseNameDisplay');
+        if (courseNameElement && reportSummary.courseName) {
+            courseNameElement.textContent = "ILP - " + reportSummary.courseName + " Final Feedback Form";
+        }
+
+        // Update overall rating
+        const overallRatingElement = container.querySelector('#overallRatingDisplay');
+        if (overallRatingElement && reportSummary.totalRatingOfTrainer) {
+            overallRatingElement.textContent = reportSummary.totalRatingOfTrainer.toFixed(2);
+        }
+
+        // Update number of responses
+        const responsesElement = container.querySelector('#responsesCountDisplay');
+        if (responsesElement && reportSummary.noOfResponses) {
+            responsesElement.textContent = reportSummary.noOfResponses;
+        }
+
+        // Populate question analysis data
+        if (reportSummary.questionAnalysis) {
+            await populateQuestionAnalysisInContainer(container, reportSummary.questionAnalysis);
+        }
+
+        // Populate comments sections
+        await populateCommentsSectionInContainer(container, reportSummary);
+        
+        console.log("Data population completed");
+        
+    } catch (error) {
+        console.error("Error populating report data in container:", error);
+        throw error;
+    }
+}
+
+// Function to populate question analysis in container
+async function populateQuestionAnalysisInContainer(container, questionAnalysis) {
+    console.log("Populating question analysis in container:", questionAnalysis);
+    
+    const table = container.querySelector('.rating-table');
+    if (!table || !questionAnalysis) {
+        console.error("Table not found or no question analysis data");
+        return;
+    }
+
+    // Clear existing content
+    table.innerHTML = '';
+    
+    // Filter out the question about arrangements/details
+    const filteredQuestions = Object.entries(questionAnalysis).filter(([question, stats]) =>
+        !question.toLowerCase().includes('attention was paid to details like arrangements')
+    );
+    
+    if (filteredQuestions.length === 0) {
+        console.error("No valid questions found after filtering");
+        return;
+    }
+
+    // Create header row with questions
+    const headerRow = document.createElement('tr');
+    
+    filteredQuestions.forEach(([question, stats]) => {
+        const questionHeader = document.createElement('th');
+        questionHeader.textContent = question;
+        questionHeader.colSpan = 2; // Spans both rating and count columns
+        questionHeader.style.textAlign = 'center';
+        questionHeader.title = question; // Full question as tooltip
+        headerRow.appendChild(questionHeader);
+    });
+    
+    table.appendChild(headerRow);
+
+    // Create subheader row for Rating/Count labels
+    const subHeaderRow = document.createElement('tr');
+    
+    filteredQuestions.forEach(() => {
+        const ratingSubHeader = document.createElement('th');
+        ratingSubHeader.textContent = 'Rating';
+        ratingSubHeader.style.fontSize = '0.9em';
+        ratingSubHeader.style.fontWeight = 'normal';
+        subHeaderRow.appendChild(ratingSubHeader);
+        
+        const countSubHeader = document.createElement('th');
+        countSubHeader.textContent = 'Count';
+        countSubHeader.style.fontSize = '0.9em';
+        countSubHeader.style.fontWeight = 'normal';
+        subHeaderRow.appendChild(countSubHeader);
+    });
+    
+    table.appendChild(subHeaderRow);
+
+    // Define rating categories in order
+    const ratingCategories = ['Excellent', 'Very Good', 'Good', 'Average', 'Poor'];
+    
+    // Create data rows for each rating category
+    ratingCategories.forEach(rating => {
+        const row = document.createElement('tr');
+        
+        // Add data for each question
+        filteredQuestions.forEach(([question, stats]) => {
+            // Rating cell
+            const ratingDataCell = document.createElement('td');
+            ratingDataCell.textContent = rating;
+            row.appendChild(ratingDataCell);
+            
+            // Count cell
+            const countCell = document.createElement('td');
+            const count = stats[rating] || 0;
+            countCell.textContent = count;
+            countCell.style.textAlign = 'center';
+            countCell.style.fontWeight = 'bold';
+            
+            // Add color coding based on rating
+            switch(rating) {
+                case 'Excellent':
+                    countCell.style.color = '#16a34a'; // Green
+                    break;
+                case 'Very Good':
+                    countCell.style.color = '#22c55e'; // Light green
+                    break;
+                case 'Good':
+                    countCell.style.color = '#eab308'; // Yellow
+                    break;
+                case 'Average':
+                    countCell.style.color = '#f97316'; // Orange
+                    break;
+                case 'Poor':
+                    countCell.style.color = '#dc2626'; // Red
+                    break;
+            }
+            
+            row.appendChild(countCell);
+        });
+        
+        table.appendChild(row);
+    });
+
+    console.log(`Table populated with ${filteredQuestions.length} questions`);
+}
+
+// Function to populate comments sections in container
+async function populateCommentsSectionInContainer(container, reportSummary) {
+    console.log("Populating comments sections in container");
+    
+    // Extract the data
+    const whatWentWellData = reportSummary.whatWentWellCombined;
+    const whatWentWrongData = reportSummary.whatWentWrongCombined;
+    
+    console.log("What went well data:", whatWentWellData);
+    console.log("What went wrong data:", whatWentWrongData);
+    
+    // Populate "What went well" section
+    const whatWentWellSection = container.querySelector('#whatWentWell-section');
+    if (whatWentWellSection) {
+        populateSectionWithCommentsInContainer(whatWentWellSection, whatWentWellData);
+    }
+
+    // Populate "What went wrong" section  
+    const whatWentWrongSection = container.querySelector('#whatWentWrong-section');
+    if (whatWentWrongSection) {
+        populateSectionWithCommentsInContainer(whatWentWrongSection, whatWentWrongData);
+    }
+}
+
+// Helper function to parse and format comments into a section in container
+function populateSectionWithCommentsInContainer(sectionElement, commentsData) {
+    if (!sectionElement) {
+        console.error("Section element not provided");
+        return;
+    }
+
+    // Clear existing content
+    sectionElement.innerHTML = '';
+
+    // Handle empty or null data
+    if (!commentsData || commentsData.trim() === '') {
+        const noCommentsP = document.createElement('p');
+        noCommentsP.textContent = 'No comments available';
+        noCommentsP.style.fontStyle = 'italic';
+        noCommentsP.style.color = '#666';
+        sectionElement.appendChild(noCommentsP);
+        return;
+    }
+
+    // Split the comments by newline characters (\n) and filter out empty lines
+    const comments = commentsData
+        .split('\n')
+        .map(comment => comment.trim())
+        .filter(comment => comment !== '' && comment.length > 0);
+
+    if (comments.length === 0) {
+        const noCommentsP = document.createElement('p');
+        noCommentsP.textContent = 'No comments available';
+        noCommentsP.style.fontStyle = 'italic';
+        noCommentsP.style.color = '#666';
+        sectionElement.appendChild(noCommentsP);
+        return;
+    }
+
+    // Create paragraph elements for each comment
+    comments.forEach((comment, index) => {
+        const commentParagraph = document.createElement('p');
+        commentParagraph.textContent = comment;
+        
+        // Add some styling to make comments look better
+        commentParagraph.style.marginBottom = '10px';
+        commentParagraph.style.lineHeight = '1.4';
+        commentParagraph.style.fontSize = '14px';
+        
+        // Optional: Add bullet point styling
+        commentParagraph.style.position = 'relative';
+        commentParagraph.style.paddingLeft = '20px';
+        
+        // Add bullet point
+        const bulletSpan = document.createElement('span');
+        bulletSpan.textContent = '• ';
+        bulletSpan.style.position = 'absolute';
+        bulletSpan.style.left = '0';
+        bulletSpan.style.fontWeight = 'bold';
+        bulletSpan.style.color = '#8d5ca6';
+        
+        commentParagraph.insertBefore(bulletSpan, commentParagraph.firstChild);
+        
+        sectionElement.appendChild(commentParagraph);
+    });
+
+    console.log(`Successfully populated section with ${comments.length} comments`);
 }
 
     </script>
