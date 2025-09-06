@@ -1,0 +1,2159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Report Generator</title>
+    <link rel="stylesheet" href="styles/singleTrainerStyles.css" />
+    <!-- Add this to your HTML head -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Trainer Feedback</h1>
+            <p>Upload your Excel file and generate report for a Trainer</p>
+            <!-- Add this logout button -->
+            <button class="logout-btn" onclick="handleLogout()">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
+
+        <!-- Upload Section -->
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📊</div>
+                <div class="upload-text">
+                    <h3>Upload Excel File</h3>
+                    <p>Drop your Excel file here or click to browse</p>
+                    <button type="button" class="upload-btn">Choose File</button>
+                </div>
+            </div>
+            <input type="file" id="fileInput" class="file-input" accept=".xlsx,.xls" onchange="handleFileSelect(event)">
+
+            <!-- File Info Display -->
+            <div class="file-info" id="fileInfo">
+                <div class="file-icon">📄</div>
+                <div class="file-details">
+                    <h4 id="fileName"></h4>
+                    <p id="fileSize"></p>
+                </div>
+            </div>
+
+            <div class="trainer-input" id="trainerInput" style="margin-top: 15px; display: flex; width: 100%;">
+                <div style="width: 50%; display: none;" id="trainerName-input">
+                    <label for="trainerName"><strong>Trainer Name:</strong></label>
+                    <input type="text" id="trainerName" placeholder="Enter trainer name"
+                        style="padding:8px; margin-left:10px; border-radius:5px; border:1px solid #ccc; width: 250px;">
+                </div>
+                <!-- <div style="width: 50%; display: flex; justify-content: right;">
+                <label for="batchName"><strong>Batch Name:</strong></label>
+                <input type="text" id="batchName" placeholder="Enter Batch name" style="padding:8px; margin-left: 10px; border-radius:5px; border:1px solid #ccc; width: 250px;">
+                </div> -->
+                <!-- Questions Section -->
+                <div class="questions-section" id="questionsSection">
+                    <div class="questions-header">
+                        <h2 class="questions-title">Answer Questions</h2>
+                        <p class="questions-subtitle">Please provide detailed answers to all questions below</p>
+                    </div>
+
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progressBar"></div>
+                        <div class="progress-text" id="progressText">0% Complete</div>
+                    </div>
+
+                    <form class="questions-form" id="questionsForm">
+                        <!-- Dynamic questions will be inserted here -->
+                    </form>
+
+                    <div class="submit-section">
+                        <button type="button" class="submit-btn" id="submitAnswers" onclick="submitAnswers()">
+                            <span>Submit Answers</span>
+                        </button>
+                        <div class="success-message" id="successMessage">
+                            ✅ Answers submitted successfully!
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+            <!-- Messages -->
+            <div class="message" id="message"></div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-section">
+            <!-- Replace the existing generate button with this dropdown structure -->
+            <div class="dropdown-container" id="dropdownContainer">
+                <button class="generate-btn" id="generateBtn" onclick="handleGenerateClick()" disabled>
+                    <span id="buttonText">Generate Report</span>
+                    <span class="dropdown-arrow" id="dropdownArrow">▼</span>
+                </button>
+                <div class="dropdown-options" id="dropdownOptions">
+                    <!-- Dynamic trainer options will be inserted here -->
+                </div>
+            </div>
+            <button class="download-btn" id="downloadBtn" onclick="downloadReport()">
+                📥 Download Report
+            </button>
+        </div>
+
+        <!-- Loading Spinner -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Generating your report...</p>
+        </div>
+
+        <!-- Report Preview Section -->
+        <div class="report-preview" id="reportPreview">
+            <div class="report-header">
+                <div>
+                    <h2 class="report-title">Generated Report</h2>
+                </div>
+                <div class="report-date" id="reportDate"></div>
+            </div>
+
+            <div class="report-content">
+                <!-- Iframe for embedding feedbackReport.html -->
+                <iframe id="reportFrame" src=""
+                    style="width: 100%; height: 500px; border: 1px solid #ccc; border-radius: 6px; display: none;">
+                </iframe>
+
+                <!-- Placeholder before report is generated -->
+                <div class="report-placeholder" id="reportPlaceholder">
+                    <div class="icon">📈</div>
+                    <p>Your report will appear here once generated</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    <!-- Excel data extract package -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- <script type="module" src="scripts/singleTrainer.js"></script> -->
+    <script>
+        let uploadedFile = null;
+        let reportData = null;
+        let jsonData;
+        var trainerName;
+        var batchName;
+        var fileName;
+        let reportSummary = null;
+        let noOfResponses;
+        let reportFrame;
+        let singleTrainerWorkFlow;
+        let multipleExcelSummary = {};
+        let numberOfQuestions = 0;
+        let submittedQuestions = 0;
+        let firebaseData;
+        const databaseURL = "https://feedbackcollectiontool-default-rtdb.asia-southeast1.firebasedatabase.app/.json";
+        // var whatWentWrong = {};
+        // var improvemts = {};
+
+        //Handling workflow for on Generate Button click for multiple trainers
+        let isDropdownOpen = false;
+        let selectedTrainer = null;
+
+        // ================== LOGOUT FUNCTION ==================
+        function handleLogout() {
+            // Show confirmation dialog
+            if (confirm("Are you sure you want to logout?")) {
+                // Clear any user data from localStorage
+                localStorage.removeItem("userToken");
+                localStorage.removeItem("userName");
+                localStorage.removeItem("userDept");
+
+                // If Firebase auth is available, sign out from Firebase
+                if (typeof firebase !== 'undefined' && firebase.auth) {
+                    firebase.auth().signOut().then(() => {
+                        console.log("User signed out from Firebase");
+                    }).catch((error) => {
+                        console.error("Firebase sign out error:", error);
+                    });
+                }
+
+                // Redirect to signIn.html
+                window.location.href = "signIn.html";
+            }
+        }
+
+        function handleGenerateClick() {
+            // Check if we're in multiple trainer workflow and have trainers
+            if (singleTrainerWorkFlow === 0 && multipleExcelSummary && multipleExcelSummary.trainers && multipleExcelSummary.trainers.size > 0) {
+                toggleDropdown();
+            } else {
+                // Regular single button behavior
+                generateReport();
+            }
+        }
+
+        function toggleDropdown() {
+            const dropdownOptions = document.getElementById('dropdownOptions');
+            const dropdownArrow = document.getElementById('dropdownArrow');
+
+            if (isDropdownOpen) {
+                closeDropdown();
+            } else {
+                openDropdown();
+            }
+        }
+
+        function openDropdown() {
+            const dropdownOptions = document.getElementById('dropdownOptions');
+            const dropdownArrow = document.getElementById('dropdownArrow');
+
+            // Populate dropdown with trainers
+            populateDropdownOptions();
+
+            // Show dropdown with animation
+            dropdownOptions.classList.add('show', 'animating');
+            dropdownArrow.classList.add('rotated');
+            isDropdownOpen = true;
+
+            // Remove animation class after animation completes
+            setTimeout(() => {
+                dropdownOptions.classList.remove('animating');
+            }, 300);
+
+            // Add click listener to close dropdown when clicking outside
+            setTimeout(() => {
+                document.addEventListener('click', handleOutsideClick);
+            }, 100);
+        }
+
+        function closeDropdown() {
+            const dropdownOptions = document.getElementById('dropdownOptions');
+            const dropdownArrow = document.getElementById('dropdownArrow');
+
+            dropdownOptions.classList.remove('show');
+            dropdownArrow.classList.remove('rotated');
+            isDropdownOpen = false;
+
+            // Remove outside click listener
+            document.removeEventListener('click', handleOutsideClick);
+        }
+
+        function handleOutsideClick(event) {
+            const dropdownContainer = document.getElementById('dropdownContainer');
+
+            if (!dropdownContainer.contains(event.target)) {
+                closeDropdown();
+            }
+        }
+
+        function populateDropdownOptions() {
+            const dropdownOptions = document.getElementById('dropdownOptions');
+
+            // Clear existing options
+            dropdownOptions.innerHTML = '';
+
+            if (!multipleExcelSummary || !multipleExcelSummary.trainers) {
+                return;
+            }
+
+            // Convert Set to Array and create options
+            Array.from(multipleExcelSummary.trainers).forEach(trainer => {
+                const option = document.createElement('div');
+                option.className = 'dropdown-option';
+                option.textContent = trainer;
+                option.onclick = () => selectTrainer(trainer);
+                dropdownOptions.appendChild(option);
+            });
+        }
+
+        function selectTrainer(trainer) {
+
+            selectedTrainer = trainer;
+            console.log("the selected trainer is: " + selectedTrainer);
+            const buttonText = document.getElementById('buttonText');
+
+
+            // Update button text to show selected trainer
+            // buttonText.textContent = `Generate Report - ${trainer}`;
+            buttonText.textContent = `Generate Report`;
+            document.getElementById('generateBtn').disabled = false;
+
+            // Close dropdown
+            closeDropdown();
+
+            // Generate report for selected trainer
+            generateReport();
+        }
+
+        // Update the workflow detection to show/hide dropdown arrow
+        function updateButtonMode() {
+            const dropdownArrow = document.getElementById('dropdownArrow');
+            const buttonText = document.getElementById('buttonText');
+
+            if (singleTrainerWorkFlow === 0 && multipleExcelSummary && multipleExcelSummary.trainers && multipleExcelSummary.trainers.size > 0) {
+                // Multiple trainer workflow - show dropdown
+                dropdownArrow.classList.add('show');
+                buttonText.textContent = 'Select Trainer & Generate Report';
+            } else {
+                // Single trainer workflow - hide dropdown
+                dropdownArrow.classList.remove('show');
+                buttonText.textContent = 'Generate Report';
+                selectedTrainer = null;
+            }
+        }
+
+
+        // File upload handling
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                uploadedFile = file;
+                displayFileInfo(file);
+                showMessage('File uploaded successfully!', 'success');
+                document.getElementById('generateBtn').disabled = false;
+
+            }
+        }
+
+        function displayFileInfo(file) {
+            const fileInfo = document.getElementById('fileInfo');
+            const fileName = document.getElementById('fileName');
+            const fileSize = document.getElementById('fileSize');
+
+            fileName.textContent = file.name;
+            fileSize.textContent = `Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            fileInfo.classList.add('show');
+        }
+
+        function showMessage(text, type) {
+            const message = document.getElementById('message');
+            message.textContent = text;
+            message.className = `message ${type} show`;
+
+            setTimeout(() => {
+                message.classList.remove('show');
+            }, 5000);
+        }
+
+        document.getElementById("fileInput").addEventListener("change", function (e) {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function (evt) {
+                const data = new Uint8Array(evt.target.result);
+                const workbook = XLSX.read(data, { type: "array" });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                // ✅ Check for "Overall program rating"
+                if (jsonData.length > 0 && "Overall program rating" in jsonData[0]) {
+                    singleTrainerWorkFlow = 1;
+                    showMessage('Single Trainer Workflow Initiated', 'success');
+                    document.getElementById('trainerName-input').style.display = 'flex';
+
+                    // FIXED: Reset multiple trainer data when switching to single
+                    multipleExcelSummary = null;
+                    selectedTrainer = null;
+                    document.getElementById('questionsSection').style.display = 'none';
+                } else {
+                    singleTrainerWorkFlow = 0;
+                    showMessage('Multiple Trainers Workflow Initiated', 'success');
+
+                    document.getElementById('trainerName-input').style.display = 'none';
+                    // Process multiple trainer data
+                    multipleExcelSummary = processTrainerData(jsonData);
+                    numberOfQuestions = multipleExcelSummary.noOfQuestions;
+
+                    console.log("Trainer Count:", multipleExcelSummary.trainerCount);
+                    console.log("No of Questions:", numberOfQuestions);
+                    console.log("Question Headers:", multipleExcelSummary.questionHeaders);
+
+                    // Generate questions after processing data
+                    showQuestionsForm();
+                }
+
+                // FIXED: Always call updateButtonMode after workflow detection
+                updateButtonMode();
+
+                console.log("singleTrainerWorkFlow =", singleTrainerWorkFlow);
+            };
+
+            reader.readAsArrayBuffer(file);
+        });
+
+        let questionAnswers = {};
+
+        // Firebase helper functions using axios
+        async function fetchQuestionsFromFirebase() {
+            const databaseURL = "https://feedbackcollectiontool-default-rtdb.asia-southeast1.firebasedatabase.app/questions.json";
+
+            try {
+                const response = await axios.get(databaseURL);
+                firebaseData = response.data;
+
+                if (firebaseData) {
+                    console.log("Fetched questions from Firebase:", firebaseData);
+                    return firebaseData;
+                } else {
+                    console.log("No questions found in Firebase");
+                    return null;
+                }
+            } catch (error) {
+                console.error("Error fetching questions from Firebase:", error);
+                showMessage('Error fetching questions from database', 'error');
+                return null;
+            }
+        }
+
+        async function saveQuestionsToFirebase(questionsData) {
+            const databaseURL = "https://feedbackcollectiontool-default-rtdb.asia-southeast1.firebasedatabase.app/questions.json";
+
+            try {
+                const dataToSave = {
+                    numberOfQuestions: numberOfQuestions,
+                    timestamp: Date.now(),
+                    questions: questionsData
+                };
+
+                // Use PUT to overwrite all existing questions data
+                const response = await axios.put(databaseURL, dataToSave);
+
+                console.log("Questions saved to Firebase successfully:", response.data);
+                showMessage('Questions saved successfully!', 'success');
+                return true;
+            } catch (error) {
+                console.error("Error saving questions to Firebase:", error);
+                showMessage('Error saving questions to database', 'error');
+                return false;
+            }
+        }
+
+        async function generateQuestions() {
+            const questionsForm = document.getElementById('questionsForm');
+            const questionsSection = document.getElementById('questionsSection');
+
+            console.log("Generating questions for numberOfQuestions:", numberOfQuestions);
+
+            if (!numberOfQuestions || numberOfQuestions <= 0) {
+                console.error("numberOfQuestions is not set or invalid:", numberOfQuestions);
+                return;
+            }
+
+            // Clear existing questions
+            questionsForm.innerHTML = '';
+            questionAnswers = {};
+
+            // Check if questions exist in Firebase
+            const existingQuestions = await fetchQuestionsFromFirebase();
+            let shouldFillFromFirebase = false;
+
+            // Check if Firebase has the same number of questions
+            if (existingQuestions &&
+                existingQuestions.numberOfQuestions === numberOfQuestions &&
+                existingQuestions.questions) {
+                shouldFillFromFirebase = true;
+                console.log("Found matching questions in Firebase, will populate fields");
+            } else {
+                console.log("No matching questions in Firebase or different count, starting fresh");
+            }
+
+            // Generate questions dynamically
+            for (let i = 1; i <= numberOfQuestions; i++) {
+                const questionGroup = document.createElement('div');
+                questionGroup.className = 'question-group';
+                questionGroup.style.animationDelay = `${i * 0.05}s`;
+
+                // Get existing value from Firebase if available
+                const existingValue = shouldFillFromFirebase && existingQuestions.questions[`question${i}`]
+                    ? existingQuestions.questions[`question${i}`]
+                    : '';
+
+                questionGroup.innerHTML = `
+            <label class="question-label" for="question${i}">
+                <span class="question-number">${i}</span>
+                <span>Question ${i}</span>
+            </label>
+            <textarea 
+                class="question-textarea" 
+                id="question${i}" 
+                name="question${i}"
+                placeholder="Please provide your detailed answer for Question ${i}..."
+                maxlength="1000"
+                oninput="updateCharacterCount(this, ${i}); updateProgress()"
+            >${existingValue}</textarea>
+            <div class="character-counter" id="counter${i}">0 / 1000 characters</div>
+        `;
+
+                questionsForm.appendChild(questionGroup);
+
+                // Initialize questionAnswers with existing values
+                questionAnswers[`question${i}`] = existingValue;
+            }
+
+            // Update character counters for pre-filled content
+            for (let i = 1; i <= numberOfQuestions; i++) {
+                const textarea = document.getElementById(`question${i}`);
+                if (textarea && textarea.value) {
+                    updateCharacterCount(textarea, i);
+                }
+            }
+
+            // Show the questions section
+            questionsSection.style.display = 'block';
+            questionsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            console.log("Questions generated successfully");
+            updateProgress();
+
+            // Show appropriate message
+            if (shouldFillFromFirebase) {
+                showMessage('Existing questions loaded for editing', 'success');
+            } else {
+                showMessage('New questions form ready', 'success');
+            }
+        }
+
+        function updateCharacterCount(textarea, questionNumber) {
+            const counter = document.getElementById(`counter${questionNumber}`);
+            const length = textarea.value.length;
+            const maxLength = parseInt(textarea.getAttribute('maxlength'));
+
+            counter.textContent = `${length} / ${maxLength} characters`;
+
+            counter.className = 'character-counter';
+            if (length > maxLength * 0.8) {
+                counter.classList.add('warning');
+            }
+            if (length > maxLength * 0.95) {
+                counter.classList.add('danger');
+            }
+
+            questionAnswers[`question${questionNumber}`] = textarea.value;
+        }
+
+        function updateProgress() {
+            if (!numberOfQuestions || numberOfQuestions <= 0) return;
+
+            let filledQuestions = 0;
+
+            for (let i = 1; i <= numberOfQuestions; i++) {
+                const textarea = document.getElementById(`question${i}`);
+                if (textarea && textarea.value.trim().length > 0) {
+                    filledQuestions++;
+                }
+            }
+
+            const progressPercentage = (filledQuestions / numberOfQuestions) * 100;
+            const progressBar = document.getElementById('progressBar');
+            const progressText = document.getElementById('progressText');
+
+            if (progressBar) progressBar.style.width = `${progressPercentage}%`;
+            if (progressText) progressText.textContent = `${Math.round(progressPercentage)}% Complete (${filledQuestions}/${numberOfQuestions})`;
+
+            const submitBtn = document.getElementById('submitAnswers');
+            if (submitBtn) submitBtn.disabled = progressPercentage !== 100;
+        }
+
+        async function submitAnswers() {
+            const successMessage = document.getElementById('successMessage');
+            const allAnswers = {};
+
+            // Collect all answers
+            for (let i = 1; i <= numberOfQuestions; i++) {
+                const textarea = document.getElementById(`question${i}`);
+                if (textarea) {
+                    allAnswers[`question${i}`] = textarea.value.trim();
+                }
+            }
+
+            console.log('Submitting Answers:', allAnswers);
+
+            // Show loading state
+            const submitBtn = document.getElementById('submitAnswers');
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Saving...';
+            submitBtn.disabled = true;
+
+            // Save to Firebase
+            const saveSuccess = await saveQuestionsToFirebase(allAnswers);
+
+            // Reset button state
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+
+            if (saveSuccess && successMessage) {
+                successMessage.style.display = 'block';
+                setTimeout(() => {
+                    successMessage.style.display = 'none';
+                }, 3000);
+            }
+            submittedQuestions = 1;
+        }
+
+        function showQuestionsForm() {
+            console.log("showQuestionsForm called with numberOfQuestions:", numberOfQuestions);
+            generateQuestions();
+        }
+
+        function processTrainerData(data) {
+            const trainers = [];
+            const baseNames = new Set();
+            let maxSuffix = 0;
+
+            if (data.length === 0) return { trainers, trainerCount: 0, noOfQuestions: 0 };
+
+            const sampleRow = data[0];
+            for (const key of Object.keys(sampleRow)) {
+                // skip non-trainer fields
+                if (["ID", "Name", "Email", "Start time", "Completion time", "Last modified time"].includes(key)) {
+                    continue;
+                }
+
+                // match names like "Suneesh Thampi", "Suneesh Thampi2"
+                const match = key.match(/^([A-Za-z ]+?)(\d*)$/);
+                if (match) {
+                    trainers.push(key);
+                    baseNames.add(match[1].trim());
+
+                    if (match[2] && !isNaN(match[2])) {
+                        maxSuffix = Math.max(maxSuffix, parseInt(match[2], 10));
+                    }
+                }
+            }
+
+            console.log("Processed trainer data:", { baseNames, maxSuffix, trainers });
+
+            return {
+                trainers: baseNames,
+                trainerCount: baseNames.size,
+                noOfQuestions: maxSuffix,
+                questionHeaders: trainers
+            };
+        }
+
+
+        // Drag and drop functionality
+        const uploadSection = document.getElementById('uploadSection');
+
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.type.includes('sheet') || file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+                    uploadedFile = file;
+                    displayFileInfo(file);
+                    showMessage('File uploaded successfully!', 'success');
+                    document.getElementById('generateBtn').disabled = false;
+                } else {
+                    showMessage('Please upload a valid Excel file (.xlsx or .xls)', 'error');
+                }
+            }
+        });
+
+        // Enhanced saveSummary function with better error handling
+        function saveSummary(summary) {
+            try {
+                console.log("Attempting to save to localStorage:", summary);
+
+                // Check if the summary object is valid
+                if (!summary || typeof summary !== 'object') {
+                    throw new Error("Invalid summary data");
+                }
+
+                const summaryString = JSON.stringify(summary);
+                console.log("Summary string length:", summaryString.length);
+
+                localStorage.setItem('reportSummary', summaryString);
+                console.log("Successfully saved to localStorage");
+
+                // Verify the save worked
+                const verifyData = localStorage.getItem('reportSummary');
+                if (verifyData) {
+                    const parsedData = JSON.parse(verifyData);
+                    console.log("Verification successful - Data keys:", Object.keys(parsedData));
+                } else {
+                    throw new Error("Verification failed - no data found after save");
+                }
+            } catch (error) {
+                console.error("Error saving to localStorage:", error);
+                alert("Failed to save report summary to localStorage: " + error.message);
+                throw error;
+            }
+        }
+
+        // Process Excel file - now properly async
+        function processSingleExcelFile(file) {
+            return new Promise(async (resolve, reject) => {
+                const reader = new FileReader();
+
+                reader.onload = async (e) => {
+                    try {
+                        console.log("Starting Excel file processing...");
+
+                        const data = new Uint8Array(e.target.result);
+                        console.log("File data loaded, size:", data.length, "bytes");
+
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        console.log("Workbook loaded, sheets:", workbook.SheetNames);
+
+                        // Validate workbook has sheets
+                        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                            throw new Error('No sheets found in the Excel file');
+                        }
+
+                        // Get the first sheet
+                        const sheetName = workbook.SheetNames[0];
+                        const sheet = workbook.Sheets[sheetName];
+
+                        if (!sheet) {
+                            throw new Error(`Sheet '${sheetName}' not found in the workbook`);
+                        }
+
+                        console.log("Processing sheet:", sheetName);
+
+                        // Convert sheet to JSON
+                        jsonData = XLSX.utils.sheet_to_json(sheet);
+                        console.log("Excel data loaded:", jsonData);
+                        console.log("Number of rows processed:", jsonData.length);
+                        console.log("Data type check - is array:", Array.isArray(jsonData));
+                        noOfResponses = jsonData.length;
+
+                        // Validate the converted data
+                        if (!Array.isArray(jsonData)) {
+                            throw new Error('Failed to convert Excel data to array format');
+                        }
+
+                        if (jsonData.length === 0) {
+                            throw new Error('Excel sheet appears to be empty or contains no data rows');
+                        }
+
+                        // Log sample of first row to understand data structure
+                        if (jsonData.length > 0) {
+                            console.log("Sample data (first row keys):", Object.keys(jsonData[0]));
+                            console.log("Sample data (first row):", jsonData[0]);
+                        }
+
+                        // Validate that we have meaningful data
+                        const firstRow = jsonData[0];
+                        const hasData = Object.keys(firstRow).some(key =>
+                            firstRow[key] !== undefined &&
+                            firstRow[key] !== null &&
+                            firstRow[key] !== ''
+                        );
+
+                        if (!hasData) {
+                            throw new Error('Excel sheet contains no meaningful data');
+                        }
+
+                        console.log("Excel data validation passed. Starting analysis...");
+
+                        // FIXED: Now properly await the async analysis
+                        const processedData = await analyzeSingleExcelData(file);
+                        console.log("Analysis completed successfully");
+                        resolve(processedData);
+
+                    } catch (error) {
+                        console.error("Error in processExcelFile:", error);
+                        console.error("Error details:", {
+                            name: error.name,
+                            message: error.message,
+                            stack: error.stack
+                        });
+
+                        // Provide more specific error messages
+                        let userFriendlyMessage = error.message;
+
+                        if (error.message.includes('XLSX')) {
+                            userFriendlyMessage = 'Failed to read Excel file. Please ensure it\'s a valid .xlsx or .xls file.';
+                        } else if (error.message.includes('empty')) {
+                            userFriendlyMessage = 'The Excel file appears to be empty. Please check that it contains data.';
+                        } else if (error.message.includes('sheets')) {
+                            userFriendlyMessage = 'No sheets found in the Excel file. Please check the file format.';
+                        }
+
+                        reject(new Error(userFriendlyMessage));
+                    }
+                };
+
+                reader.onerror = (error) => {
+                    console.error("FileReader error:", error);
+                    reject(new Error('Failed to read the selected file. Please try again.'));
+                };
+
+                // Validate file before processing
+                if (!file) {
+                    reject(new Error('No file provided for processing'));
+                    return;
+                }
+
+                console.log("Reading file:", file.name, "Size:", file.size, "bytes", "Type:", file.type);
+
+                // Check file size (optional - adjust limit as needed)
+                const maxSize = 50 * 1024 * 1024; // 50MB limit
+                if (file.size > maxSize) {
+                    reject(new Error('File is too large. Please select a file smaller than 50MB.'));
+                    return;
+                }
+
+                // Check file extension
+                const validExtensions = ['.xlsx', '.xls'];
+                const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+                if (!validExtensions.includes(fileExtension)) {
+                    reject(new Error('Invalid file type. Please select an Excel file (.xlsx or .xls).'));
+                    return;
+                }
+
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // Process Report for Multiple Trainers
+        function processMultipleExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+
+                reader.onload = (e) => {
+                    try {
+                        console.log("Starting Excel file processing...");
+
+                        const data = new Uint8Array(e.target.result);
+                        console.log("File data loaded, size:", data.length, "bytes");
+
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        console.log("Workbook loaded, sheets:", workbook.SheetNames);
+
+                        // Validate workbook has sheets
+                        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+                            throw new Error('No sheets found in the Excel file');
+                        }
+
+                        // Get the first sheet
+                        const sheetName = workbook.SheetNames[0];
+                        const sheet = workbook.Sheets[sheetName];
+
+                        if (!sheet) {
+                            throw new Error(`Sheet '${sheetName}' not found in the workbook`);
+                        }
+
+                        console.log("Processing sheet:", sheetName);
+
+                        // Convert sheet to JSON
+                        jsonData = XLSX.utils.sheet_to_json(sheet);
+                        console.log("Excel data loaded:", jsonData);
+                        console.log("Number of rows processed:", jsonData.length);
+                        console.log("Data type check - is array:", Array.isArray(jsonData));
+                        noOfResponses = jsonData.length;
+
+                        // Validate the converted data
+                        if (!Array.isArray(jsonData)) {
+                            throw new Error('Failed to convert Excel data to array format');
+                        }
+
+                        if (jsonData.length === 0) {
+                            throw new Error('Excel sheet appears to be empty or contains no data rows');
+                        }
+
+                        // Log sample of first row to understand data structure
+                        if (jsonData.length > 0) {
+                            console.log("Sample data (first row keys):", Object.keys(jsonData[0]));
+                            console.log("Sample data (first row):", jsonData[0]);
+                        }
+
+                        // Validate that we have meaningful data
+                        const firstRow = jsonData[0];
+                        const hasData = Object.keys(firstRow).some(key =>
+                            firstRow[key] !== undefined &&
+                            firstRow[key] !== null &&
+                            firstRow[key] !== ''
+                        );
+
+                        if (!hasData) {
+                            throw new Error('Excel sheet contains no meaningful data');
+                        }
+
+                        console.log("Excel data validation passed. Starting analysis...");
+
+                        const processedData = analyzeMultipleExcelData(file);
+                        console.log("Analysis completed successfully");
+                        showMessage('Analysis Complete!!!', 'success');
+                        resolve(processedData);
+
+                    } catch (error) {
+                        console.error("Error in processExcelFile:", error);
+                        console.error("Error details:", {
+                            name: error.name,
+                            message: error.message,
+                            stack: error.stack
+                        });
+
+                        // Provide more specific error messages
+                        let userFriendlyMessage = error.message;
+
+                        if (error.message.includes('XLSX')) {
+                            userFriendlyMessage = 'Failed to read Excel file. Please ensure it\'s a valid .xlsx or .xls file.';
+                        } else if (error.message.includes('empty')) {
+                            userFriendlyMessage = 'The Excel file appears to be empty. Please check that it contains data.';
+                        } else if (error.message.includes('sheets')) {
+                            userFriendlyMessage = 'No sheets found in the Excel file. Please check the file format.';
+                        }
+
+                        reject(new Error(userFriendlyMessage));
+                    }
+                };
+
+                reader.onerror = (error) => {
+                    console.error("FileReader error:", error);
+                    reject(new Error('Failed to read the selected file. Please try again.'));
+                };
+
+                // Validate file before processing
+                if (!file) {
+                    reject(new Error('No file provided for processing'));
+                    return;
+                }
+
+                console.log("Reading file:", file.name, "Size:", file.size, "bytes", "Type:", file.type);
+
+                // Check file size (optional - adjust limit as needed)
+                const maxSize = 50 * 1024 * 1024; // 50MB limit
+                if (file.size > maxSize) {
+                    reject(new Error('File is too large. Please select a file smaller than 50MB.'));
+                    return;
+                }
+
+                // Check file extension
+                const validExtensions = ['.xlsx', '.xls'];
+                const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+                if (!validExtensions.includes(fileExtension)) {
+                    reject(new Error('Invalid file type. Please select an Excel file (.xlsx or .xls).'));
+                    return;
+                }
+
+                reader.readAsArrayBuffer(file);
+            });
+
+
+        }
+
+
+
+        // Fixed analyzeSingleExcelData function - now properly async
+        async function analyzeSingleExcelData(file) {
+            // Validate that jsonData exists and is an array
+            if (!jsonData || !Array.isArray(jsonData)) {
+                throw new Error("jsonData is not available or not an array. Current type: " + typeof jsonData);
+            }
+
+            if (jsonData.length === 0) {
+                throw new Error("No data found in the Excel file");
+            }
+
+            console.log("Starting analysis with", jsonData.length, "entries");
+
+            // Global counters
+            const globalCounts = { Excellent: 0, "Very Good": 0, Good: 0, Average: 0, Poor: 0 };
+            let totalRating = 0;
+            let totalResponses = 0;
+
+            // String to hold all feedbacks
+            let whatWentWrongCombined = "";
+            let whatWentWellCombined = "";
+
+            try {
+                jsonData.forEach((entry, index) => {
+                    console.log(`Processing entry ${index}:`, entry);
+
+                    const personalCount = { Excellent: 0, "Very Good": 0, Good: 0, Average: 0, Poor: 0 };
+
+                    // Count ratings
+                    Object.entries(entry).forEach(([key, val]) => {
+                        if (typeof val === 'string' && globalCounts.hasOwnProperty(val)) {
+                            personalCount[val]++;
+                            globalCounts[val]++;
+                        }
+                    });
+
+                    // Attach per-person count
+                    entry["CombinedCounts"] = personalCount;
+
+                    // Handle overall rating - try different possible column names
+                    let overallRating = entry["Overall program rating"] ||
+                        entry["Overall Program Rating"] ||
+                        entry["overall_program_rating"] ||
+                        entry["Overall Rating"];
+
+                    if (overallRating && !isNaN(parseFloat(overallRating))) {
+                        totalRating += parseFloat(overallRating);
+                        totalResponses++;
+                    }
+
+                    // Collect feedback on what went wrong - improved logic
+                    let whatWentWrong = null;
+                    let whatWentWell = null;
+
+                    // First, try to find the exact column name by looking for key that contains "improvement" or "less liked"
+                    const feedbackKey = Object.keys(entry).find(key =>
+                        key.toLowerCase().includes('improvement') ||
+                        key.toLowerCase().includes('less liked') ||
+                        key.toLowerCase().includes('what needs improvement')
+                    );
+
+                    const feedWellKey = Object.keys(entry).find(key =>
+                        key.toLowerCase().includes('well') ||
+                        key.toLowerCase().includes('liked') ||
+                        key.toLowerCase().includes('What went well')
+                    );
+
+                    if (feedbackKey) {
+                        whatWentWrong = entry[feedbackKey];
+                    }
+
+                    if (feedWellKey) {
+                        whatWentWell = entry[feedWellKey];
+                    }
+
+                    // If we found feedback and it's a valid string, add it to our combined string
+                    if (whatWentWrong && typeof whatWentWrong === 'string' && whatWentWrong.trim()) {
+                        // Clean up the feedback text and add it
+                        const cleanedFeedback = whatWentWrong.trim();
+                        whatWentWrongCombined += cleanedFeedback;
+
+                        // Add period and space if the feedback doesn't already end with punctuation
+                        if (!cleanedFeedback.match(/[.!?]$/)) {
+                            whatWentWrongCombined += ". ";
+                        } else {
+                            whatWentWrongCombined += " ";
+                        }
+                    }
+
+                    // If we found feedback and it's a valid string, add it to our combined string
+                    if (whatWentWell && typeof whatWentWell === 'string' && whatWentWell.trim()) {
+                        // Clean up the feedback text and add it
+                        const cleanedFeedback = whatWentWell.trim();
+                        whatWentWellCombined += cleanedFeedback;
+
+                        // Add period and space if the feedback doesn't already end with punctuation
+                        if (!cleanedFeedback.match(/[.!?]$/)) {
+                            whatWentWellCombined += ". ";
+                        } else {
+                            whatWentWellCombined += " ";
+                        }
+                    }
+
+                    console.log(`Entry ${index} feedback:`, whatWentWrong);
+                    console.log(`Current combined length:`, whatWentWrongCombined.length);
+
+                    console.log(`Entry ${index} feedback:`, whatWentWell);
+                    console.log(`Current combined length:`, whatWentWellCombined.length);
+                });
+            } catch (error) {
+                console.error("Error during forEach processing:", error);
+                throw new Error("Error processing Excel data: " + error.message);
+            }
+
+            // Clean up the combined feedback string
+            whatWentWrongCombined = whatWentWrongCombined.trim();
+            console.log("Combined feedback length:", whatWentWrongCombined.length);
+
+            // Clean up the combined feedwell string
+            whatWentWellCombined = whatWentWellCombined.trim();
+            console.log("Combined What Went Well length:", whatWentWellCombined.length);
+
+            // Calculate overall avg rating (avoid division by zero)
+            const averageRating = totalResponses > 0 ? totalRating / totalResponses : 0;
+            console.log("Average Overall Rating:", averageRating.toFixed(2));
+
+            // Ratings we care about
+            const ratingOptions = ["Excellent", "Very Good", "Good", "Average", "Poor"];
+
+            // Object to hold results
+            const questionStats = {};
+
+            // Iterate through each row (response)
+            try {
+                jsonData.forEach(entry => {
+                    Object.entries(entry).forEach(([question, answer]) => {
+                        if (typeof answer === 'string' && ratingOptions.includes(answer)) {
+                            // Initialize stats for this question if not already present
+                            if (!questionStats[question]) {
+                                questionStats[question] = {
+                                    Excellent: 0,
+                                    "Very Good": 0,
+                                    Good: 0,
+                                    Average: 0,
+                                    Poor: 0
+                                };
+                            }
+                            // Increment the correct bucket
+                            questionStats[question][answer]++;
+                        }
+                    });
+                });
+            } catch (error) {
+                console.error("Error during question analysis:", error);
+                throw new Error("Error analyzing questions: " + error.message);
+            }
+
+            // Get trainer name
+            const trainerInput = document.getElementById('trainerName');
+            const currentTrainerName = trainerInput ? trainerInput.value.trim() : "";
+
+            // Get file name
+            const currentFileName = file ? file.name : "";
+
+            // Extract course name
+            const angularMatch = currentFileName.match(/_(.*?)_/);
+            const courseName = angularMatch ? angularMatch[1] : "Not found";
+
+            // Extract batch info
+            const batchMatch = currentFileName.match(/(ILP).*?Batch\s\d+.*?_(\d{4}-\d{2})/);
+            const batchInfo = batchMatch ? `${batchMatch[1]} ${batchMatch[2]} Batch` : "Not found";
+
+            console.log("courseName:", courseName);
+            console.log("Batch Info:", batchInfo);
+            console.log("whatWentWrongCombined:", whatWentWrongCombined);
+            console.log("whatWentWellCombined:", whatWentWellCombined);
+
+            // Ask gemini to summarize - now properly awaited
+            let whatWentWrongFinal = "";
+            let whatWentWellFinal = "";
+
+            try {
+                const geminiResponse = await summarizeGemini("here are 2 paragraphs containing combined feedback about 'what went wrong' and 'What went well' from all the users who attended a training section from a trainer. summarize this into 4 key points for each 1.where the trainer can i improve and what can be changed in the training and 2.where the trainer excels and what good feedback trainees have to say. write the headings for each as: 'what went wrong' and 'what went well'. keep it short and consise by only giving the headings and the 4 points for each, nothing else. paragraphs are - 'what went wrong para': '" + whatWentWrongCombined + "'. what went well para' :'" + whatWentWellCombined + "'");
+
+                if (geminiResponse) {
+                    const cleaned = geminiResponse
+                        // remove markdown headers like ### Heading
+                        .replace(/###\s?.*/g, "")
+                        // remove bullet markers (*, -, •) with or without space
+                        .replace(/^\s*[\*\-•]\s*/gm, "")
+                        // also catch cases like "*what went wrong" (no space after the *)
+                        .replace(/^\s*\*/gm, "")
+                        // remove extra blank lines
+                        .replace(/\n\s*\n/g, "\n")
+                        // remove bold markers (**)
+                        .replace(/\*\*/g, "")
+                        .trim();
+
+                    console.log("Full Cleaned Response:\n", cleaned);
+
+                    // Split into lines
+                    const lines = cleaned.split("\n").map(l => l.trim()).filter(Boolean);
+
+                    // First block: lines 1–4 (skip heading)
+                    whatWentWrongFinal = lines.slice(1, 5).join("\n");
+
+                    // Second block: lines 6–9 (skip heading)
+                    whatWentWellFinal = lines.slice(6, 10).join("\n");
+
+                    console.log("\n=== What Went Wrong ===\n", whatWentWrongFinal);
+                    console.log("\n=== What Went Well ===\n", whatWentWellFinal);
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                // Continue with empty feedback if Gemini fails
+                whatWentWrongFinal = "Unable to generate summary";
+                whatWentWellFinal = "Unable to generate summary";
+            }
+
+            // Create the report summary - ensure all values are serializable
+            const reportSummaryData = {
+                questionAnalysis: questionStats,
+                totalRatingOfTrainer: parseFloat(averageRating.toFixed(2)),
+                noOfResponses: totalResponses, // Fixed: was "noOfResposes"
+                trainerName: currentTrainerName || "",
+                batchName: batchInfo || "",
+                courseName: courseName || "",
+                timestamp: new Date().toISOString(),
+                globalCounts: globalCounts,
+                whatWentWrongCombined: whatWentWrongFinal || "", // Added the combined feedback
+                whatWentWellCombined: whatWentWellFinal || ""
+            };
+
+            console.log("Final Report Summary before saving:", reportSummaryData);
+
+            // Save to localStorage
+            saveSummary(reportSummaryData);
+
+            // Update global reportSummary variable
+            reportSummary = reportSummaryData;
+
+            return reportSummaryData;
+        }
+
+
+
+        async function analyzeMultipleExcelData(file) {
+            // ---- Basic validation ----
+            if (!jsonData || !Array.isArray(jsonData)) {
+                throw new Error("jsonData is not available or not an array. Current type: " + typeof jsonData);
+            }
+            if (jsonData.length === 0) {
+                throw new Error("No data found in the Excel file");
+            }
+
+            console.log("Starting analysis with", jsonData.length, "entries");
+
+            // ---- Ratings config ----
+            const ratingOptions = ["Excellent", "Very Good", "Good", "Average", "Poor"];
+            const ratingValues = { "Excellent": 5, "Very Good": 4, "Good": 3, "Average": 2, "Poor": 1 };
+
+            // ---- Helpers ----
+            const norm = (s) => (s || "")
+                .toString()
+                .replace(/\s+/g, " ")
+                .replace(/[""]/g, '"')
+                .replace(/[']/g, "'")
+                .trim()
+                .toLowerCase();
+
+            function concatFeedback(arr) {
+                return arr
+                    .map(s => (s || "").toString().trim())
+                    .filter(Boolean)
+                    .map(s => /[.!?]$/.test(s) ? s : s + ".")
+                    .join(" ");
+            }
+
+            function extractSectionFromCleaned(cleanedText, heading) {
+                const lines = cleanedText.split("\n").map(l => l.trim()).filter(Boolean);
+                const findIdx = (title) =>
+                    lines.findIndex(l => norm(l).includes(norm(title)));
+                const idx = findIdx(heading);
+                if (idx === -1) return "";
+                // Collect next up to 4 bullet-ish lines or sentences after heading
+                const bulletLike = [];
+                for (let i = idx + 1; i < lines.length && bulletLike.length < 4; i++) {
+                    const t = lines[i];
+                    // stop if another heading line appears
+                    if (/^what\s/.test(norm(t))) break;
+                    if (t) bulletLike.push(t.replace(/^[\-\*\•]\s*/, "").trim());
+                }
+                return bulletLike.join("\n");
+            }
+
+            // ---- Collect all sheet keys once and detect feedback columns dynamically ----
+            const allKeysSet = new Set();
+            jsonData.forEach(row => Object.keys(row || {}).forEach(k => allKeysSet.add(k)));
+            const allKeys = [...allKeysSet];
+
+            // Positive feedback column candidates
+            let whatWentWellKey =
+                allKeys.find(k => {
+                    const nk = norm(k);
+                    return (
+                        nk.includes("what went well") ||
+                        (nk.includes("most liked") && !nk.includes("less liked")) ||
+                        (nk.includes("liked") && !nk.includes("less liked")) ||
+                        nk.includes("things you most liked")
+                    );
+                }) ||
+                // fallback: pick anything that has "well" or "liked" but not "less"
+                allKeys.find(k => {
+                    const nk = norm(k);
+                    return (nk.includes("well") || nk.includes("liked")) && !nk.includes("less");
+                });
+
+            // Improvement feedback column candidates
+            let whatNeedsImprovementKey =
+                allKeys.find(k => {
+                    const nk = norm(k);
+                    return (
+                        nk.includes("needs improvement") ||
+                        nk.includes("what needs improvement") ||
+                        nk.includes("improvement") ||
+                        nk.includes("less liked") ||
+                        nk.includes("what went wrong")
+                    );
+                }) ||
+                // fallback: generic "improve" catch
+                allKeys.find(k => norm(k).includes("improve"));
+
+            console.log("Detected columns -> well:", whatWentWellKey, "improve:", whatNeedsImprovementKey);
+
+            // If still not found, we'll detect per-row (like your working function)
+            const hasGlobalWellKey = !!whatWentWellKey;
+            const hasGlobalImproveKey = !!whatNeedsImprovementKey;
+
+            try {
+                // ---- Setup per-trainer buckets ----
+                const trainerResults = {};
+                const trainers = multipleExcelSummary.trainers || [];
+                const questionHeaders = multipleExcelSummary.questionHeaders || [];
+
+                trainers.forEach(trainerName => {
+                    trainerResults[trainerName] = {
+                        trainerName,
+                        questionAnalysis: {},
+                        totalRatingSum: 0,
+                        totalRatings: 0,
+                        averageRating: 0,
+                        responseCount: 0,
+                        whatWentWellTexts: [],
+                        whatNeedsImprovementTexts: [],
+                        questionStats: {}
+                    };
+                });
+
+                // ---- Process each row ----
+                jsonData.forEach((row, rowIndex) => {
+                    trainers.forEach(trainerName => {
+                        // Headers that belong to this trainer
+                        const trainerQuestionHeaders = questionHeaders.filter(h =>
+                            norm(h).includes(norm(trainerName))
+                        );
+
+                        let hasValidRatingForTrainer = false;
+
+                        // Count ratings for this trainer
+                        trainerQuestionHeaders.forEach((qHeader, qIndex) => {
+                            const ans = row[qHeader];
+                            if (typeof ans === "string" && ratingOptions.includes(ans)) {
+                                hasValidRatingForTrainer = true;
+
+                                // Get the actual question text from firebaseData or fallback
+                                const qKey = `question${qIndex + 1}`;
+                                const questionText = firebaseData?.questions?.[qKey] || `Question ${qIndex + 1}`;
+
+                                // Use question text as the key instead of qKey
+                                if (!trainerResults[trainerName].questionStats[questionText]) {
+                                    trainerResults[trainerName].questionStats[questionText] = {
+                                        responses: { "Excellent": 0, "Very Good": 0, "Good": 0, "Average": 0, "Poor": 0 },
+                                        totalResponses: 0,
+                                        averageRating: 0
+                                    };
+                                }
+                                const qStat = trainerResults[trainerName].questionStats[questionText];
+                                qStat.responses[ans]++;
+                                qStat.totalResponses++;
+
+                                const val = ratingValues[ans];
+                                trainerResults[trainerName].totalRatingSum += val;
+                                trainerResults[trainerName].totalRatings++;
+                            }
+                        });
+
+                        if (hasValidRatingForTrainer) {
+                            trainerResults[trainerName].responseCount++;
+
+                            // --- Grab feedback for THIS ROW, using robust key detection ---
+                            let wellText, improveText;
+
+                            if (hasGlobalWellKey) {
+                                wellText = row[whatWentWellKey];
+                            } else {
+                                // per-row search like your working function
+                                const rowWellKey = Object.keys(row).find(k => {
+                                    const nk = norm(k);
+                                    return (
+                                        nk.includes("what went well") ||
+                                        (nk.includes("most liked") && !nk.includes("less liked")) ||
+                                        (nk.includes("liked") && !nk.includes("less liked")) ||
+                                        nk.includes("things you most liked")
+                                    );
+                                }) || Object.keys(row).find(k => {
+                                    const nk = norm(k);
+                                    return (nk.includes("well") || nk.includes("liked")) && !nk.includes("less");
+                                });
+                                wellText = rowWellKey ? row[rowWellKey] : undefined;
+                            }
+
+                            if (hasGlobalImproveKey) {
+                                improveText = row[whatNeedsImprovementKey];
+                            } else {
+                                const rowImproveKey = Object.keys(row).find(k => {
+                                    const nk = norm(k);
+                                    return (
+                                        nk.includes("needs improvement") ||
+                                        nk.includes("what needs improvement") ||
+                                        nk.includes("improvement") ||
+                                        nk.includes("less liked") ||
+                                        nk.includes("what went wrong")
+                                    );
+                                }) || Object.keys(row).find(k => norm(k).includes("improve"));
+                                improveText = rowImproveKey ? row[rowImproveKey] : undefined;
+                            }
+
+                            if (typeof wellText === "string" && wellText.trim()) {
+                                trainerResults[trainerName].whatWentWellTexts.push(wellText.trim());
+                            }
+                            if (typeof improveText === "string" && improveText.trim()) {
+                                trainerResults[trainerName].whatNeedsImprovementTexts.push(improveText.trim());
+                            }
+                        }
+                    });
+                });
+                // Get file name
+                const currentFileName = file ? file.name : "";
+
+                //Find Batch Name from file name
+                const batchMatch = currentFileName.match(/(ILP).*?(\d{4}-\d{2}) Batch/i);
+                const batchInfo = batchMatch ? `${batchMatch[1]} ${batchMatch[2]} Batch` : "Not found";
+
+                console.log(batchInfo);
+
+                // Extract course name
+                const courseMatch = currentFileName.match(/ILP\s*-\s*(.*?)\s*_/);
+                const courseName = courseMatch ? courseMatch[1].trim() : "Not found";
+
+                console.log(courseName);
+
+
+
+                // ---- Compute stats + build final results ----
+                const finalResults = {};
+
+                for (const trainerName of trainers) {
+                    const t = trainerResults[trainerName];
+
+                    if (t.totalRatings > 0) {
+                        t.averageRating = t.totalRatingSum / t.totalRatings;
+                    }
+
+                    // Rebuild question stats in flattened structure
+                    const questionAnalysis = {};
+                    Object.keys(t.questionStats).forEach(questionText => {
+                        const q = t.questionStats[questionText];
+                        // Just copy response counts directly (remove averageRating + totalResponses)
+                        questionAnalysis[questionText] = { ...q.responses };
+                    });
+
+                    const whatWentWellCombined = concatFeedback(t.whatWentWellTexts);
+                    const whatNeedsImprovementCombined = concatFeedback(t.whatNeedsImprovementTexts);
+
+                    finalResults[trainerName] = {
+                        trainerName,
+                        questionAnalysis, // flattened structure
+                        totalRatingOfTrainer: parseFloat(t.averageRating.toFixed(2)),
+                        noOfResponses: t.responseCount,
+                        whatWentWellCombined,
+                        whatWentWrongCombined: whatNeedsImprovementCombined,
+                        timestamp: new Date().toISOString(),
+                        batchName: batchInfo,
+                        courseName: courseName
+                    };
+
+
+
+                    console.log(`[${trainerName}] WW Well len: ${whatWentWellCombined.length} | Needs Improvement len: ${whatNeedsImprovementCombined.length}`);
+                }
+
+                // ---- Gemini summarization ----
+                async function processGeminiSummarization() {
+                    const geminiResults = {};
+
+                    for (const trainerName of trainers) {
+                        const tr = finalResults[trainerName];
+
+                        // FIXED: Use correct property names - tr.whatWentWrongCombined instead of tr.whatNeedsImprovementCombined
+                        if (!(tr.whatWentWellCombined || tr.whatWentWrongCombined)) {
+                            geminiResults[trainerName] = { whatNeedsImprovementFinal: "", whatWentWellFinal: "" };
+                            continue;
+                        }
+
+                        try {
+                            const prompt =
+                                `Here are 2 paragraphs containing combined feedback about 'what went wrong' and 'what went well' from all users who attended a training session from trainer "${trainerName}". Summarize this into 4 key points for each:
+1) What Needs Improvement (actions the trainer can take)
+2) What Went Well (strengths)
+Write the headings exactly as: "What Needs Improvement" and "What Went Well".
+Keep it concise: only the two headings and 4 bullet points under each, nothing else.
+
+Paragraphs:
+'What needs improvement': '${tr.whatWentWrongCombined}'
+'What went well': '${tr.whatWentWellCombined}'`;
+
+                            const raw = await summarizeGemini(prompt);
+                            if (!raw) {
+                                geminiResults[trainerName] = { whatNeedsImprovementFinal: "", whatWentWellFinal: "" };
+                                continue;
+                            }
+
+                            const cleaned = raw
+                                .replace(/###\s?.*/g, "")
+                                .replace(/^\s*[\*\-•]\s*/gm, "")
+                                .replace(/\*\*/g, "")
+                                .replace(/\n\s*\n/g, "\n")
+                                .trim();
+
+                            const whatNeedsImprovementFinal = extractSectionFromCleaned(cleaned, "What Needs Improvement");
+                            const whatWentWellFinal = extractSectionFromCleaned(cleaned, "What Went Well");
+
+                            geminiResults[trainerName] = { whatNeedsImprovementFinal, whatWentWellFinal };
+                        } catch (err) {
+                            console.error(`Gemini failed for ${trainerName}:`, err);
+                            geminiResults[trainerName] = {
+                                whatNeedsImprovementFinal: "Error processing feedback",
+                                whatWentWellFinal: "Error processing feedback"
+                            };
+                        }
+                    }
+
+                    return geminiResults;
+                }
+
+                // ---- Execute + combine ----
+                async function executeAnalysis() {
+                    const geminiResults = await processGeminiSummarization();
+
+                    const completeResults = {};
+                    for (const trainerName of trainers) {
+                        completeResults[trainerName] = {
+                            ...finalResults[trainerName],
+                            // Map improvement → whatWentWrongFinal as per your naming
+                            whatWentWrongCombined: geminiResults[trainerName]?.whatNeedsImprovementFinal || "",
+                            whatWentWellCombined: geminiResults[trainerName]?.whatWentWellFinal || ""
+                        };
+
+                    }
+
+                    // Save only the selected trainer result if available
+                    try {
+                        if (typeof selectedTrainer !== "undefined" && completeResults[selectedTrainer]) {
+                            // Pass selectedTrainer (not "selectTrainer") to match key name
+                            saveSummary(completeResults[selectedTrainer], selectedTrainer);
+                        } else {
+                            console.warn("selectedTrainer not provided or not found in results; skipping individual save");
+                        }
+                    } catch (e) {
+                        console.warn("saveSummary for individual trainer failed:", e);
+                    }
+
+                    // Save combined results
+                    const combinedSummary = {
+                        trainers: completeResults,
+                        totalTrainers: trainers.length,
+                        analysisTimestamp: new Date().toISOString(),
+                        totalResponses: Object.values(completeResults).reduce((sum, t) => sum + (t.noOfResponses || 0), 0)
+                    };
+
+                    // Expose globally
+                    window.multipleTrainerResults = combinedSummary;
+
+                    console.log("Analysis complete for all trainers:", Object.keys(completeResults));
+                    return combinedSummary;
+                }
+
+                return await executeAnalysis();
+
+            } catch (error) {
+                console.error("Error during analysis:", error);
+                throw new Error("Error processing Excel data: " + error.message);
+            }
+        }
+
+
+
+
+
+        // Report generation
+        async function generateReport() {
+            if (!uploadedFile) {
+                showMessage('Please upload a file first!', 'error');
+                return;
+            }
+            if (submittedQuestions == 0 && singleTrainerWorkFlow == 0) {
+                showMessage('Please CHECK and SUBMIT the questions first!', 'error');
+                return;
+            }
+
+            let trainerNameCheck = document.getElementById('trainerName').value.trim();
+            if (!trainerNameCheck && singleTrainerWorkFlow == 1) {
+                showMessage('Please enter the trainer name before generating report.', 'error');
+                return;
+            }
+
+            // Show loading
+            document.getElementById('loading').style.display = 'flex';
+            document.getElementById('generateBtn').disabled = true;
+
+            try {
+
+                //WorkFlow for single Trainer
+
+                if (singleTrainerWorkFlow == 1) {
+                    // trainerName = document.getElementById('trainerName').value.trim();
+                    // Process the Excel file
+                    reportData = await processSingleExcelFile(uploadedFile);
+
+
+                    // Show the report preview
+                    showReportPreview();
+                    showMessage('Report generated successfully!', 'success');
+                    // Show download button
+                    document.getElementById('downloadBtn').style.display = 'inline-block';
+
+                    // Now you can access reportSummary here
+                    console.log("Report Summary is now available:", reportData);
+                }
+
+                else {
+                    //showMessage('Adjusting Your WorkFlow! Accelerating Data Processing...', 'success');
+                    showMessage('Generating report for trainer:  ' + selectedTrainer, 'success');
+                    document.getElementById('generateBtn').disabled = true;
+                    reportData = await processMultipleExcelFile(uploadedFile);
+                    showReportPreview();
+                    showMessage('Report generated successfully!', 'success');
+                    // Show download button
+                    document.getElementById('downloadBtn').style.display = 'inline-block';
+
+
+
+                }
+                // Reset button text after report generation
+                setTimeout(() => {
+                    const buttonText = document.getElementById('buttonText');
+                    if (singleTrainerWorkFlow === 0) {
+                        buttonText.textContent = 'Select Trainer & Generate Report';
+                    } else {
+                        buttonText.textContent = 'Generate Report';
+                    }
+                }, 6000); // Adjust timing based on your actual report generation time
+
+
+            } catch (error) {
+                console.error('Error generating report:', error);
+                showMessage('Error generating report. Please try again.', 'error');
+            } finally {
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('generateBtn').disabled = false;
+            }
+        }
+
+        function showReportPreview() {
+            const reportPreview = document.getElementById('reportPreview');
+            const reportDate = document.getElementById('reportDate');
+            const reportPlaceholder = document.getElementById('reportPlaceholder');
+            reportFrame = document.getElementById('reportFrame');
+
+            // Set report date
+            reportDate.textContent = `Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`;
+
+            // Hide placeholder
+            if (reportPlaceholder) {
+                reportPlaceholder.style.display = 'none';
+            }
+
+            // Show iframe with feedbackReport.html
+            reportFrame.src = "feedbackReport.html";
+            reportFrame.style.display = "block";
+
+            // Make sure the preview section is visible
+            reportPreview.classList.add('show');
+        }
+
+
+        // Set up the file input event listener
+        document.getElementById('fileInput').addEventListener('change', (event) => {
+            handleFileSelect(event);
+        });
+
+
+
+
+        //Gemini SetUp
+
+        async function summarizeGemini(prompt) {
+            console.log(prompt);
+            const API_KEY = "AIzaSyCdXfS6CzvUzoq1Jo_x5HMdvtp_ykImrQM "; // 🔑 Replace with your actual key
+            const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=" + API_KEY;
+
+            const requestBody = {
+                contents: [
+                    { parts: [{ text: prompt }] }
+                ]
+            };
+
+
+            try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+                console.log("Gemini response:", data);
+
+                // Extract actual text
+                aiText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                console.log("AI says:", aiText);
+                return aiText;
+            } catch (err) {
+                console.error("Error calling Gemini API:", err);
+                return "";
+            }
+        }
+
+        // Run it on page load
+
+
+
+
+        // Approach 2: Using jsPDF with html2canvas (Alternative)
+        async function downloadReportWithJsPDF() {
+            try {
+                // Get the report summary from localStorage
+                const savedData = localStorage.getItem('reportSummary');
+                if (!savedData) {
+                    alert('No report data found. Please generate a report first.');
+                    return;
+                }
+
+                const reportSummary = JSON.parse(savedData);
+                console.log("Report summary loaded:", reportSummary);
+
+                // Fetch the HTML content
+                const response = await fetch('feedBackReport.html');
+                const htmlContent = await response.text();
+
+                // Create a temporary container
+                const tempContainer = document.createElement('div');
+                tempContainer.innerHTML = htmlContent;
+                tempContainer.style.position = 'absolute';
+                tempContainer.style.left = '-9999px';
+                tempContainer.style.top = '-9999px';
+                tempContainer.style.width = '210mm'; // A4 width
+                tempContainer.style.backgroundColor = '#ffffff';
+                document.body.appendChild(tempContainer);
+
+                // Wait a bit for the DOM to be ready
+                await new Promise(resolve => setTimeout(resolve, 100));
+
+                // Now populate the data in the temporary container
+                await populateReportInContainer(tempContainer, reportSummary);
+
+                // Wait a bit more to ensure all content is rendered
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Use html2canvas to capture the content
+                const canvas = await html2canvas(tempContainer, {
+                    scale: 2,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: '#ffffff',
+                    width: tempContainer.scrollWidth,
+                    height: tempContainer.scrollHeight,
+                    onclone: function (clonedDoc) {
+                        // Ensure the cloned document also has the populated data
+                        console.log("Cloning document for canvas");
+                    }
+                });
+
+                // Create PDF with jsPDF
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+
+                const imgData = canvas.toDataURL('image/png');
+                const imgWidth = 210; // A4 width in mm
+                const pageHeight = 295; // A4 height in mm
+                const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                // Add first page
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                // Add additional pages if needed
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+
+                // Download the PDF
+                pdf.save('feedbackReport.pdf');
+
+                // Clean up
+                document.body.removeChild(tempContainer);
+
+                console.log("PDF generated successfully");
+
+            } catch (error) {
+                console.error('Error downloading report:', error);
+                alert('Failed to download report. Please try again. Error: ' + error.message);
+            }
+        }
+
+        // Function to populate data in the temporary container
+        async function populateReportInContainer(container, reportSummary) {
+            console.log("Populating report data in container:", reportSummary);
+
+            try {
+                // Update trainer name
+                const trainerNameElement = container.querySelector('#trainerNameDisplay');
+                if (trainerNameElement && reportSummary.trainerName) {
+                    trainerNameElement.textContent = reportSummary.trainerName;
+                }
+
+                // Update batch name
+                const batchNameElement = container.querySelector('#batchNameDisplay');
+                if (batchNameElement && reportSummary.batchName) {
+                    batchNameElement.textContent = reportSummary.batchName;
+                }
+
+                // Update course name
+                const courseNameElement = container.querySelector('#courseNameDisplay');
+                if (courseNameElement && reportSummary.courseName) {
+                    courseNameElement.textContent = "ILP - " + reportSummary.courseName + " Final Feedback Form";
+                }
+
+                // Update overall rating
+                const overallRatingElement = container.querySelector('#overallRatingDisplay');
+                if (overallRatingElement && reportSummary.totalRatingOfTrainer) {
+                    overallRatingElement.textContent = reportSummary.totalRatingOfTrainer.toFixed(2);
+                }
+
+                // Update number of responses
+                const responsesElement = container.querySelector('#responsesCountDisplay');
+                if (responsesElement && reportSummary.noOfResponses) {
+                    responsesElement.textContent = reportSummary.noOfResponses;
+                }
+
+                // Populate question analysis data
+                if (reportSummary.questionAnalysis) {
+                    await populateQuestionAnalysisInContainer(container, reportSummary.questionAnalysis);
+                }
+
+                // Populate comments sections
+                await populateCommentsSectionInContainer(container, reportSummary);
+
+                console.log("Data population completed");
+
+            } catch (error) {
+                console.error("Error populating report data in container:", error);
+                throw error;
+            }
+        }
+
+        // Function to populate question analysis in container
+        async function populateQuestionAnalysisInContainer(container, questionAnalysis) {
+            console.log("Populating question analysis in container:", questionAnalysis);
+
+            const table = container.querySelector('.rating-table');
+            if (!table || !questionAnalysis) {
+                console.error("Table not found or no question analysis data");
+                return;
+            }
+
+            // Clear existing content
+            table.innerHTML = '';
+
+            // Filter out the question about arrangements/details
+            const filteredQuestions = Object.entries(questionAnalysis).filter(([question, stats]) =>
+                !question.toLowerCase().includes('attention was paid to details like arrangements')
+            );
+
+            if (filteredQuestions.length === 0) {
+                console.error("No valid questions found after filtering");
+                return;
+            }
+
+            // Create header row with questions
+            const headerRow = document.createElement('tr');
+
+            filteredQuestions.forEach(([question, stats]) => {
+                const questionHeader = document.createElement('th');
+                questionHeader.textContent = question;
+                questionHeader.colSpan = 2; // Spans both rating and count columns
+                questionHeader.style.textAlign = 'center';
+                questionHeader.title = question; // Full question as tooltip
+                headerRow.appendChild(questionHeader);
+            });
+
+            table.appendChild(headerRow);
+
+            // Create subheader row for Rating/Count labels
+            const subHeaderRow = document.createElement('tr');
+
+            filteredQuestions.forEach(() => {
+                const ratingSubHeader = document.createElement('th');
+                ratingSubHeader.textContent = 'Rating';
+                ratingSubHeader.style.fontSize = '0.9em';
+                ratingSubHeader.style.fontWeight = 'normal';
+                subHeaderRow.appendChild(ratingSubHeader);
+
+                const countSubHeader = document.createElement('th');
+                countSubHeader.textContent = 'Count';
+                countSubHeader.style.fontSize = '0.9em';
+                countSubHeader.style.fontWeight = 'normal';
+                subHeaderRow.appendChild(countSubHeader);
+            });
+
+            table.appendChild(subHeaderRow);
+
+            // Define rating categories in order
+            const ratingCategories = ['Excellent', 'Very Good', 'Good', 'Average', 'Poor'];
+
+            // Create data rows for each rating category
+            ratingCategories.forEach(rating => {
+                const row = document.createElement('tr');
+
+                // Add data for each question
+                filteredQuestions.forEach(([question, stats]) => {
+                    // Rating cell
+                    const ratingDataCell = document.createElement('td');
+                    ratingDataCell.textContent = rating;
+                    row.appendChild(ratingDataCell);
+
+                    // Count cell
+                    const countCell = document.createElement('td');
+                    const count = stats[rating] || 0;
+                    countCell.textContent = count;
+                    countCell.style.textAlign = 'center';
+                    countCell.style.fontWeight = 'bold';
+
+                    // Add color coding based on rating
+                    switch (rating) {
+                        case 'Excellent':
+                            countCell.style.color = '#16a34a'; // Green
+                            break;
+                        case 'Very Good':
+                            countCell.style.color = '#22c55e'; // Light green
+                            break;
+                        case 'Good':
+                            countCell.style.color = '#eab308'; // Yellow
+                            break;
+                        case 'Average':
+                            countCell.style.color = '#f97316'; // Orange
+                            break;
+                        case 'Poor':
+                            countCell.style.color = '#dc2626'; // Red
+                            break;
+                    }
+
+                    row.appendChild(countCell);
+                });
+
+                table.appendChild(row);
+            });
+
+            console.log(`Table populated with ${filteredQuestions.length} questions`);
+        }
+
+        // Function to populate comments sections in container
+        async function populateCommentsSectionInContainer(container, reportSummary) {
+            console.log("Populating comments sections in container");
+
+            // Extract the data
+            const whatWentWellData = reportSummary.whatWentWellCombined;
+            const whatWentWrongData = reportSummary.whatWentWrongCombined;
+
+            console.log("What went well data:", whatWentWellData);
+            console.log("What went wrong data:", whatWentWrongData);
+
+            // Populate "What went well" section
+            const whatWentWellSection = container.querySelector('#whatWentWell-section');
+            if (whatWentWellSection) {
+                populateSectionWithCommentsInContainer(whatWentWellSection, whatWentWellData);
+            }
+
+            // Populate "What went wrong" section  
+            const whatWentWrongSection = container.querySelector('#whatWentWrong-section');
+            if (whatWentWrongSection) {
+                populateSectionWithCommentsInContainer(whatWentWrongSection, whatWentWrongData);
+            }
+        }
+
+        // Helper function to parse and format comments into a section in container
+        function populateSectionWithCommentsInContainer(sectionElement, commentsData) {
+            if (!sectionElement) {
+                console.error("Section element not provided");
+                return;
+            }
+
+            // Clear existing content
+            sectionElement.innerHTML = '';
+
+            // Handle empty or null data
+            if (!commentsData || commentsData.trim() === '') {
+                const noCommentsP = document.createElement('p');
+                noCommentsP.textContent = 'No comments available';
+                noCommentsP.style.fontStyle = 'italic';
+                noCommentsP.style.color = '#666';
+                sectionElement.appendChild(noCommentsP);
+                return;
+            }
+
+            // Split the comments by newline characters (\n) and filter out empty lines
+            const comments = commentsData
+                .split('\n')
+                .map(comment => comment.trim())
+                .filter(comment => comment !== '' && comment.length > 0);
+
+            if (comments.length === 0) {
+                const noCommentsP = document.createElement('p');
+                noCommentsP.textContent = 'No comments available';
+                noCommentsP.style.fontStyle = 'italic';
+                noCommentsP.style.color = '#666';
+                sectionElement.appendChild(noCommentsP);
+                return;
+            }
+
+            // Create paragraph elements for each comment
+            comments.forEach((comment, index) => {
+                const commentParagraph = document.createElement('p');
+                commentParagraph.textContent = comment;
+
+                // Add some styling to make comments look better
+                commentParagraph.style.marginBottom = '10px';
+                commentParagraph.style.lineHeight = '1.4';
+                commentParagraph.style.fontSize = '14px';
+
+                // Optional: Add bullet point styling
+                commentParagraph.style.position = 'relative';
+                commentParagraph.style.paddingLeft = '20px';
+
+                // Add bullet point
+                const bulletSpan = document.createElement('span');
+                bulletSpan.textContent = '• ';
+                bulletSpan.style.position = 'absolute';
+                bulletSpan.style.left = '0';
+                bulletSpan.style.fontWeight = 'bold';
+                bulletSpan.style.color = '#8d5ca6';
+
+                commentParagraph.insertBefore(bulletSpan, commentParagraph.firstChild);
+
+                sectionElement.appendChild(commentParagraph);
+            });
+
+            console.log(`Successfully populated section with ${comments.length} comments`);
+        }
+
+        // Alternative approach: Open feedBackReport.html in new window and generate PDF from there
+        async function downloadReportFromWindow() {
+            try {
+                // Check if report data exists
+                const savedData = localStorage.getItem('reportSummary');
+                if (!savedData) {
+                    alert('No report data found. Please generate a report first.');
+                    return;
+                }
+
+                // Open the report in a new window
+                const reportWindow = window.open('feedBackReport.html', '_blank', 'width=1200,height=800');
+
+                if (!reportWindow) {
+                    alert('Please allow popups for this site to download the report.');
+                    return;
+                }
+
+                // Wait for the window to load and then generate PDF
+                reportWindow.addEventListener('load', async function () {
+                    try {
+                        // Wait a bit more for dynamic content to load
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+
+                        // Use html2canvas on the new window's document
+                        const canvas = await html2canvas(reportWindow.document.body, {
+                            scale: 2,
+                            useCORS: true,
+                            allowTaint: true,
+                            backgroundColor: '#ffffff'
+                        });
+
+                        // Create PDF
+                        const { jsPDF } = window.jspdf;
+                        const pdf = new jsPDF('p', 'mm', 'a4');
+
+                        const imgData = canvas.toDataURL('image/png');
+                        const imgWidth = 210;
+                        const pageHeight = 295;
+                        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+                        let heightLeft = imgHeight;
+                        let position = 0;
+
+                        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                        heightLeft -= pageHeight;
+
+                        while (heightLeft >= 0) {
+                            position = heightLeft - imgHeight;
+                            pdf.addPage();
+                            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                            heightLeft -= pageHeight;
+                        }
+
+                        pdf.save('feedbackReport.pdf');
+
+                        // Close the popup window
+                        reportWindow.close();
+
+                    } catch (error) {
+                        console.error('Error generating PDF from window:', error);
+                        alert('Failed to generate PDF. Error: ' + error.message);
+                        reportWindow.close();
+                    }
+                });
+
+            } catch (error) {
+                console.error('Error opening report window:', error);
+                alert('Failed to open report window. Error: ' + error.message);
+            }
+        }
+
+        // Main function to call - tries the container approach first, falls back to window approach
+        async function downloadReport() {
+            try {
+                await downloadReportWithJsPDF();
+            } catch (error) {
+                console.log('Container approach failed, trying window approach...');
+                await downloadReportFromWindow();
+            }
+        }
+
+        //firebase setup
+        //https://feedbackcollectiontool-default-rtdb.asia-southeast1.firebasedatabase.app/.json
+
+
+
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <script type="module">
+        // Import the functions you need from the SDKs you need
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+        // TODO: Add SDKs for Firebase products that you want to use
+        // https://firebase.google.com/docs/web/setup#available-libraries
+
+        // Your web app's Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyBtBUmkpV98RlURjXy0UhFiFvOJ4rJ70sQ",
+            authDomain: "feedbackcollectiontool.firebaseapp.com",
+            projectId: "feedbackcollectiontool",
+            storageBucket: "feedbackcollectiontool.firebasestorage.app",
+            messagingSenderId: "735354933386",
+            appId: "1:735354933386:web:db03317d76cdd09a265d73"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+    </script>
+
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js" type="module"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js" type="module"></script>
+    <!-- <script src="scripts/singleTrainer.js" type="module"></script> -->
+
+</body>
+
+</html>
